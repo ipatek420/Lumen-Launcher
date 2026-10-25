@@ -1,0 +1,1956 @@
+<title>Lumen Launcher</title>
+<meta name="viewport" content="width=1920, initial-scale=1">
+<!--FONTS-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Outfit:wght@300;500&display=swap">
+<!--/FONTS-->
+<style>
+/* Layout: fixed 1920x1080 TV stage scaled to the window; low-res canvas backdrop (blur for free), hero copy top-left, card rows anchored low. */
+:root{
+  --bg:#06080c;
+  --fg:#f3f5f9;
+  --muted:rgba(226,233,245,.64);
+  --faint:rgba(226,233,245,.36);
+  --panel:#0e1117;
+  --pill:#f3f5f9;
+  --pill-ink:#0a0c11;
+  --accent:#8fd3ff;
+  --accent-glow:rgba(143,211,255,.5);
+  --font-display:'Outfit','LG Smart UI','Segoe UI',system-ui,sans-serif;
+  --font-body:'Figtree','LG Smart UI','Segoe UI',system-ui,sans-serif;
+  --radius:18px; --scale:1.1; --dur:.3s;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;overflow:hidden;color:var(--fg);font-family:var(--font-body);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;cursor:default;background:var(--bg)}
+
+/* ---------- backdrop: two small canvases, upscaled = blurred, cross-faded by opacity only ---------- */
+.bd{position:absolute;left:0;top:0;width:1920px;height:1080px;opacity:0;transition:opacity .5s ease;will-change:opacity}
+.bd.on{opacity:1}
+#stage.lite .bd,#stage.boot .bd{transition:none}
+
+/* ---------- top bar ---------- */
+#top{position:absolute;top:54px;right:96px;display:flex;align-items:center;z-index:5;transition:opacity .3s}
+#clock{text-align:right;margin-right:16px}
+/* weather: same two lines as the clock, to its left: icon + temperature, then today's high and low */
+#wx{text-align:right;margin-right:44px;transition:opacity .4s}
+#wx-now{display:flex;align-items:center;justify-content:flex-end;height:58px}
+#wx-icon svg{width:46px;height:46px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;margin-right:12px;display:block}
+#wx-temp{font-family:var(--font-display);font-weight:300;font-size:58px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+#wx-range{font-size:22px;color:var(--muted);margin-top:8px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+#time{font-family:var(--font-display);font-weight:300;font-size:58px;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+#time .ampm{font-size:24px;font-weight:500;margin-left:8px;letter-spacing:.06em;color:var(--muted)}
+#date{font-size:22px;color:var(--muted);margin-top:8px;letter-spacing:.02em}
+.tbtn{position:relative;width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);transition:transform var(--dur),background-color var(--dur),color var(--dur);color:var(--fg);margin-left:18px}
+.tbtn svg{width:32px;height:32px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tbtn.focus{background:var(--pill);color:var(--pill-ink);transform:scale(1.14)}
+/* name under the focused button; scaled back so it stays at its own size */
+.tl{position:absolute;top:100%;right:50%;margin-top:14px;transform:translate3d(50%,-6px,0) scale(.88);white-space:nowrap;font-size:21px;font-weight:600;color:var(--fg);opacity:0;transition:opacity var(--dur),transform var(--dur);text-shadow:0 1px 10px rgba(0,0,0,.6);pointer-events:none}
+.tbtn.focus .tl{opacity:1;transform:translate3d(50%,0,0) scale(.88)}
+#stage.top-on #credit{opacity:0}
+#stage.no-clock #clock{display:none}
+#stage.no-date #date{display:none}
+
+/* ---------- hero ---------- */
+#hero{position:absolute;left:120px;top:164px;width:1000px;z-index:2;transition:opacity var(--dur)}
+#stage.no-hero #hero{opacity:0}
+/* title first, then one quiet line of facts in the accent colour, then the description */
+#title{font-family:var(--font-display);font-weight:500;font-size:96px;line-height:1.04;letter-spacing:-.025em;margin:0;padding-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#eyebrow{font-size:25px;font-weight:600;letter-spacing:.01em;color:var(--accent);height:32px;margin-top:10px;transition:color .5s ease}
+#desc{font-size:28px;line-height:1.42;color:var(--muted);margin-top:14px;max-width:820px;height:80px;overflow:hidden}
+#hero.swapA .hx{animation:heroA .42s cubic-bezier(.2,.8,.2,1) both}
+#hero.swapB .hx{animation:heroB .42s cubic-bezier(.2,.8,.2,1) both}
+@keyframes heroA{from{opacity:0;transform:translate3d(0,12px,0)}to{opacity:1;transform:none}}
+@keyframes heroB{from{opacity:0;transform:translate3d(0,12px,0)}to{opacity:1;transform:none}}
+#stage.lite #hero .hx{animation:none!important}
+
+/* ---------- rows ---------- */
+/* peek (Up from the first row, and while the top buttons have focus): cards slide down and fade */
+#rowsWrap{position:absolute;left:0;right:0;top:0;z-index:3;transition:transform .6s cubic-bezier(.25,.8,.25,1),opacity .6s ease;will-change:transform,opacity}
+#stage.peek #rowsWrap{transform:translate3d(0,170px,0);opacity:.16}
+#stage.peek-bg #hero,#stage.peek-bg #hints{opacity:0}
+#stage.peek-bg #phShade{opacity:.45}
+#phShade{transition:opacity .6s ease;will-change:opacity}
+#hero{transition:opacity .45s ease}
+#stage.speed-off #rowsWrap,#stage.speed-off #phShade,#stage.speed-off #hero{transition:none}
+#rows{position:absolute;left:0;right:0;top:0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);z-index:3;will-change:transform}
+.row{padding-left:120px;margin-bottom:54px;transition:opacity var(--dur)}
+.row.above{opacity:0}
+.row-title{font-family:var(--font-display);font-weight:500;font-size:27px;color:var(--muted);margin-bottom:32px;letter-spacing:.01em;height:34px}
+.row.cur .row-title{color:var(--fg)}
+#stage.no-row-titles .row-title{display:none}
+.track{display:flex;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);will-change:transform}
+.card{flex:none;margin-right:38px;position:relative}
+.lift{position:relative;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);--rx:0deg;--ry:0deg;will-change:transform}
+.halo{position:absolute;left:0;top:0;right:0;bottom:0;border-radius:var(--radius);opacity:0;transition:opacity var(--dur);box-shadow:0 24px 42px rgba(0,0,0,.58);will-change:opacity}
+.face{position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.32)}
+/* gloss sits below the light sweep: on top of it, it forced both to be redrawn on every move */
+.face::after{content:"";position:absolute;z-index:0;top:0;left:0;right:0;bottom:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 38%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+.art{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background-size:cover;background-position:center}
+.art svg{height:40%;width:auto;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.art img{max-width:50%;max-height:62%}
+.art.seam img{width:88%;height:88%;max-width:none;max-height:none;object-fit:contain}
+.art.tile img{max-width:62%;max-height:74%;border-radius:22px}
+#stage.style-icon .art.tile img{max-width:82%;max-height:82%}
+.art.splash img,.art.splash svg{display:none}
+/* named cards (inputs): glyph top-left, name bottom-left, readable without focus */
+.art.nm{flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:0 26px 22px;box-sizing:border-box}
+.art.nm svg{position:absolute;left:24px;top:22px;height:30%;stroke-width:1.6;opacity:.95}
+.nm-t{font-family:var(--font-display);font-weight:500;font-size:30px;line-height:1.1;letter-spacing:-.01em;color:#fff;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stage.style-icon .art.nm{padding:0 16px 14px}
+#stage.style-icon .art.nm svg{left:16px;top:16px;height:28%}
+#stage.style-icon .nm-t{font-size:21px}
+#stage.style-poster .art.nm svg{height:20%}
+.sheen{position:absolute;z-index:1;top:-20%;bottom:-20%;left:0;width:60%;background:linear-gradient(105deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.24) 50%,rgba(255,255,255,0) 100%);transform:translate3d(-160%,0,0) skewX(-12deg);pointer-events:none;will-change:transform}
+.card.focus .sheen{animation:sheen 1.1s cubic-bezier(.3,.6,.3,1) .15s 1 both}
+@keyframes sheen{from{transform:translate3d(-160%,0,0) skewX(-12deg)}to{transform:translate3d(260%,0,0) skewX(-12deg)}}
+#stage.lite .sheen{display:none}
+#stage.glide .track,#stage.glide #rows{transition-duration:.15s;transition-timing-function:linear}
+#stage.glide .lift,#stage.glide .halo,#stage.glide .label{transition-duration:.15s}
+#stage.glide .card.focus .sheen{animation:none}
+.label{margin-top:22px;font-size:24px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity var(--dur),transform var(--dur) cubic-bezier(.2,.8,.2,1)}
+#stage.labels-focus .card:not(.focus) .label{opacity:0}
+#stage.labels-never .label{display:none}
+.card.focus .label{color:var(--fg);transform:translate3d(0,calc((var(--scale) - 1) * var(--h) / 2 - 2px),0)}
+
+/* focus effects: transform + opacity only, nothing that repaints while animating */
+.card.focus .lift{transform:translate3d(0,-6px,0) scale(var(--scale));z-index:2}
+#stage.tilt .card.focus .lift{transform:perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0,-6px,0) scale(var(--scale))}
+.card.focus .halo{opacity:1}
+#stage.fx-glow .halo{box-shadow:0 0 50px 8px var(--accent-glow),0 26px 50px rgba(0,0,0,.5)}
+#stage.fx-outline .card.focus .lift{transform:scale(calc(1 + (var(--scale) - 1) * .5))}
+#stage.fx-outline .halo{box-shadow:0 0 0 5px var(--accent),0 16px 36px rgba(0,0,0,.45)}
+#stage.fx-frame .halo{box-shadow:0 0 0 5px var(--accent),0 24px 42px rgba(0,0,0,.56)}
+#stage.lite .face{box-shadow:none}
+#stage.lite.fx-lift .halo,#stage.lite.fx-glow .halo{box-shadow:0 0 0 4px rgba(255,255,255,.9)}
+#stage.style-icon .art svg{height:46%}
+
+/* move mode */
+.card.moving .lift{animation:wig .22s ease-in-out infinite alternate}
+@keyframes wig{from{transform:translate3d(0,-6px,0) scale(var(--scale)) rotate(-1.4deg)}to{transform:translate3d(0,-6px,0) scale(var(--scale)) rotate(1.4deg)}}
+.card.moving .nudge{display:flex}
+.nudge{display:none;position:absolute;top:0;left:-30px;right:-30px;height:var(--h);justify-content:space-between;align-items:center;pointer-events:none;z-index:4}
+.nudge span{width:44px;height:44px;border-radius:50%;background:var(--pill);color:var(--pill-ink);display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1}
+
+/* ---------- hints / banner / toast / fps ---------- */
+#hints{position:absolute;left:120px;top:66px;display:flex;align-items:center;font-size:20px;color:var(--faint);z-index:4;transition:opacity .3s}
+#hints .k{display:inline-block;min-width:34px;padding:4px 10px;margin-right:10px;border-radius:8px;background:rgba(255,255,255,.1);color:var(--muted);font-weight:600;font-size:17px;text-align:center;letter-spacing:.04em}
+#hints .h{margin-right:36px}
+#stage.no-hints #hints,#stage.has-banner #hints{opacity:0}
+#banner{position:absolute;left:120px;top:52px;max-width:1150px;padding:14px 22px;border-radius:14px;background:rgba(255,160,90,.16);color:#ffd2b0;font-size:21px;line-height:1.4;z-index:6}
+#toast{position:absolute;left:50%;bottom:90px;transform:translate3d(-50%,30px,0);padding:18px 30px;border-radius:999px;background:var(--panel);font-size:24px;opacity:0;transition:opacity .3s,transform .3s;z-index:30;white-space:nowrap}
+#toast.on{opacity:1;transform:translate3d(-50%,0,0)}
+#fps{position:absolute;right:24px;bottom:18px;z-index:40;font:600 20px/1 ui-monospace,Menlo,Consolas,monospace;color:#7ef0c4;background:rgba(0,0,0,.6);padding:8px 12px;border-radius:8px}
+
+/* launch zoom: sized full-screen once, animated with transform only */
+#zoom{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:25;overflow:hidden;opacity:0;pointer-events:none;transform-origin:0 0}
+#zoom.go{transition:transform .45s cubic-bezier(.6,0,.2,1),opacity .3s}
+#zoom .art svg{height:30%}
+
+/* ---------- context menu ---------- */
+#menu{position:absolute;z-index:20;width:440px;padding:12px;border-radius:26px;background:var(--panel);box-shadow:0 30px 80px rgba(0,0,0,.6);opacity:0;transform:scale(.94);transform-origin:top left;transition:opacity .18s,transform .18s;pointer-events:none}
+#menu.open{opacity:1;transform:none;pointer-events:auto}
+#menu .mh{font-size:21px;color:var(--faint);padding:12px 22px 10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi{height:64px;display:flex;align-items:center;padding:0 22px;border-radius:16px;font-size:25px;font-weight:500;color:var(--fg)}
+.mi.focus{background:var(--pill);color:var(--pill-ink)}
+
+/* ---------- settings ---------- */
+#scrim{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .3s;z-index:9}
+#scrim.on{opacity:1;pointer-events:auto}
+#settings{position:absolute;top:0;right:0;bottom:0;width:700px;background:var(--panel);z-index:10;transform:translate3d(102%,0,0);transition:transform .38s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column}
+#settings.open{transform:none}
+#s-head{padding:64px 56px 22px}
+#s-head h2{margin:0;font-family:var(--font-display);font-weight:500;font-size:48px;letter-spacing:-.01em}
+#s-head p{margin:10px 0 0;color:var(--faint);font-size:21px}
+#s-list{flex:1;overflow:hidden;padding:0 28px 60px;position:relative}
+.sh{font-family:var(--font-display);font-size:24px;font-weight:500;color:var(--accent);padding:34px 28px 10px}
+.si{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-radius:18px;font-size:25px}
+.si .v{color:var(--muted);font-size:23px;display:flex;align-items:center}
+.si .chev{opacity:0;margin:0 12px;font-size:26px;line-height:1}
+.si.focus{background:var(--pill);color:var(--pill-ink)}
+.si.focus .v{color:rgba(10,12,17,.7)}
+.si.focus .chev{opacity:.55}
+.si.pg .chev{opacity:.45;margin-right:0}
+.si.pg.focus .chev{opacity:.7}
+.tog{width:58px;height:32px;border-radius:999px;background:rgba(255,255,255,.18);position:relative}
+.tog::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff}
+.tog.on{background:var(--accent)}
+.tog.on::after{transform:translateX(26px)}
+.si.focus .tog{background:rgba(10,12,17,.2)}
+.si.focus .tog.on{background:#1b7f5a}
+.si>span:first-child{flex:none;margin-right:16px}
+/* accent: the chosen colour with its neighbours either side; left/right moves through all of them */
+.swc{display:flex;align-items:center}
+.sw{width:18px;height:18px;border-radius:50%;margin:0 7px;flex:none;opacity:.45;box-shadow:inset 0 0 0 1px rgba(127,127,127,.5)}
+.sw.sel{width:28px;height:28px;opacity:1;box-shadow:0 0 0 3px var(--panel),0 0 0 5px currentColor}
+.si.focus .sw.sel{box-shadow:0 0 0 3px var(--pill),0 0 0 5px var(--pill-ink)}
+.sw.auto{background:linear-gradient(135deg,#8fd3ff 0%,#8fd3ff 33%,#ffd166 33%,#ffd166 66%,#ff7ad6 66%)!important}
+.si .swn{min-width:96px;text-align:right;margin-left:10px}
+#stage.boot *{transition:none!important;animation:none!important}
+/* photo wallpapers: two cross-fading layers + a static shade for legibility */
+.ph,#phShade{position:absolute;left:0;top:0;width:1920px;height:1080px;display:none}
+.ph{background-size:cover;background-position:center;opacity:0;transition:opacity 1.4s ease;will-change:opacity}
+.ph.on{opacity:1}
+.ph.on.kb{animation:drift 70s ease-in-out infinite alternate}
+@keyframes drift{from{transform:scale(1.0)}to{transform:scale(1.08) translate3d(-1.5%,-1%,0)}}
+#stage.lite .ph{transition-duration:.4s}
+#stage.photo .ph,#stage.photo #phShade{display:block}
+#stage.photo .bd{display:none}
+#phShade{background-image:linear-gradient(90deg,rgba(4,6,10,.72) 0%,rgba(4,6,10,.3) 40%,rgba(4,6,10,0) 68%),linear-gradient(0deg,rgba(4,6,10,.88) 0%,rgba(4,6,10,.46) 36%,rgba(4,6,10,0) 64%),linear-gradient(180deg,rgba(4,6,10,.5) 0%,rgba(4,6,10,0) 20%)}
+#credit{position:absolute;right:96px;top:176px;max-width:620px;text-align:right;z-index:5;color:rgba(255,255,255,.62);font-size:18px;line-height:1.35;text-shadow:0 1px 10px rgba(0,0,0,.7);transition:opacity .3s}
+#credit b{display:block;font-weight:600;color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#credit span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stage.no-clock #credit{top:60px}
+#stage.no-clock.has-wx #credit{top:176px}
+/* text fields in settings */
+.si input.tx{background:transparent;border:0;outline:0;color:inherit;font:inherit;font-size:23px;text-align:right;width:300px;padding:0;caret-color:var(--accent)}
+.si.focus input.tx{color:var(--pill-ink)}
+.si.editing{box-shadow:inset 0 0 0 3px var(--accent)}
+/* monogram shown until an app's icon is confirmed */
+.mono{font-family:var(--font-display);font-weight:500;font-size:64px;letter-spacing:-.02em;color:rgba(255,255,255,.92)}
+#stage.style-poster .mono{font-size:72px}
+#stage.style-icon .mono{font-size:52px}
+/* favorites picker */
+.pk{display:flex;align-items:center}
+.pk-n{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);margin-left:16px;font-variant-numeric:tabular-nums}
+.pk-n.on{background:var(--accent);color:#0a0c11;box-shadow:none}
+.si.focus .pk-n{box-shadow:inset 0 0 0 2px rgba(10,12,17,.35)}
+.si.focus .pk-n.on{background:#0a0c11;color:var(--pill);box-shadow:none}
+.si .sub{font-size:19px;color:var(--faint);margin-left:14px}
+.si.focus .sub{color:rgba(10,12,17,.55)}
+.si .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:470px}
+/* debug console */
+#debug{position:absolute;top:0;right:0;bottom:0;width:820px;z-index:60;background:rgba(0,0,0,.9);color:#9dffb0;padding:28px 30px;overflow:hidden;font:15px/1.5 ui-monospace,Menlo,Consolas,monospace}
+#debug .dh{color:#fff;font-weight:600;margin-bottom:12px;font-family:var(--font-body);font-size:18px}
+#debug pre{margin:0;white-space:pre-wrap;word-break:break-all}
+@media (prefers-reduced-motion:reduce){#stage *{animation:none!important;transition-duration:.01s!important}}
+</style>
+
+<div id="stage" class="fx-lift labels-focus style-landscape">
+  <canvas class="bd" id="bdA" width="960" height="540"></canvas>
+  <canvas class="bd" id="bdB" width="960" height="540"></canvas>
+  <div class="ph" id="phA"></div>
+  <div class="ph" id="phB"></div>
+  <div id="phShade"></div>
+  <div id="credit" hidden></div>
+
+  <div id="hero">
+    <h1 id="title" class="hx"></h1>
+    <div id="eyebrow" class="hx"></div>
+    <div id="desc" class="hx"></div>
+  </div>
+
+  <div id="top">
+    <div id="wx" hidden><div id="wx-now"><span id="wx-icon"></span><span id="wx-temp"></span></div><div id="wx-range"></div></div>
+    <div id="clock"><div id="time"></div><div id="date"></div></div>
+    <div class="tbtn" id="tvset" role="button" aria-label="TV settings">
+      <svg viewBox="0 0 24 24"><path d="M3 4.5h18v12H3z M8.5 20.5h7 M12 16.5v4"/><path d="M12 8.2a2.3 2.3 0 1 0 0 4.6a2.3 2.3 0 1 0 0-4.6z"/></svg>
+      <span class="tl">TV settings</span>
+    </div>
+    <div class="tbtn" id="gear" role="button" aria-label="Lumen settings">
+      <svg viewBox="0 0 24 24"><path d="M12 9.2a2.8 2.8 0 1 0 0 5.6a2.8 2.8 0 1 0 0-5.6z"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6l-2-3.4l-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1l-2 3.4l2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6l2 3.4l2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1l2-3.4z"/></svg>
+      <span class="tl">Lumen settings</span>
+    </div>
+  </div>
+
+  <div id="rowsWrap"><div id="rows"></div></div>
+
+  <div id="hints"></div>
+  <div id="banner" role="status" hidden></div>
+  <div id="zoom"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="fps" hidden></div>
+  <div id="debug" hidden><div class="dh">Debug log &nbsp;·&nbsp; press 0 or the blue button to close</div><pre></pre></div>
+  <div id="menu"></div>
+  <div id="scrim"></div>
+  <div id="settings">
+    <div id="s-head"><h2>Lumen settings</h2><p>Changes apply as you go. Back to close.</p></div>
+    <div id="s-list"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+if(typeof Object.assign!=='function'){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];if(s)for(var k in s)if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}return t;};}
+var SELF_ID='org.webosbrew.lumen', LUMEN_VERSION='2.4';
+var SKEY='lumen.launcher.v1', AKEY='lumen.apps.v3';
+var stage=document.getElementById('stage');
+var $=function(id){return document.getElementById(id);};
+var SCALE=1;
+var now=function(){ return (window.performance&&performance.now)?performance.now():Date.now(); };
+
+/* ---------- glyphs (24px grid, stroked) ---------- */
+var G={
+ tv:'M3 5.5h18v11H3z M8.5 20.5h7 M12 16.5v4',
+ play:'M12 2.8a9.2 9.2 0 1 0 0 18.4a9.2 9.2 0 1 0 0-18.4z M10 8.4l5.6 3.6L10 15.6z',
+ globe:'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M3 12h18 M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z',
+ music:'M9 18.5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0z M20 16a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0z M9 18.5V6l11-2.5V16',
+ game:'M7 8h10a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-6.3 2.1L14 14.5h-4l-.7 1.1A3.5 3.5 0 0 1 3 13.5V12a4 4 0 0 1 4-4z M8 10.5v3 M6.5 12h3 M15.5 11.2h.01 M17.5 13h.01',
+ brew:'M6 4h9v13a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z M15 8h2.5a2.5 2.5 0 0 1 0 5H15 M9 8v4 M12 8v6',
+ photo:'M3.5 5h17v14h-17z M3.5 16l5-5l4 4l3-3l5 5 M15.5 9.2h.01',
+ film:'M4 4h16v16H4z M8 4v16 M16 4v16 M4 8h4 M4 12h4 M4 16h4 M16 8h4 M16 12h4 M16 16h4',
+ folder:'M3 6.5h6l2 2h10v10H3z',
+ terminal:'M3.5 4.5h17v15h-17z M7 9.5l3 2.5l-3 2.5 M12.5 15h4.5',
+ radio:'M4 9h16v11H4z M7 9l10-5 M8.5 14.5h.01 M14 13h3 M14 16h3',
+ sun:'M12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z M12 2v2 M12 20v2 M2 12h2 M20 12h2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4',
+ sliders:'M4 7h9 M17 7h3 M15 5v4 M4 17h3 M11 17h9 M9 15v4 M4 12h5 M13 12h7 M11 10v4',
+ hdmi:'M3 8h18v5l-2 3H5l-2-3z M7 11h10',
+ app:'M5 5h6v6H5z M13 5h6v6h-6z M5 13h6v6H5z M13 13h6v6h-6z',
+ light:'M9 17.5h6 M10 20.5h4 M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2v1.5h5V16c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z',
+ lamp:'M8 3h8l3 8H5z M12 11v8 M8 21h8',
+ fan:'M12 12a2 2 0 1 0 0 .01 M12 10c-1-3.5-.5-6.5 2-7c3 .5 2.5 4.5-2 7z M14 12.5c3.5-.5 6.5.8 6.6 3.3c-.8 2.9-4.6 1.8-6.6-3.3z M10.2 13.2c-2.6 2.4-5.6 3.1-7 1c-.3-3 3.6-3.6 7-1z',
+ moon:'M19.5 14.6A8 8 0 1 1 9.4 4.5a6.6 6.6 0 0 0 10.1 10.1z',
+ power:'M12 3v8.5 M7 6.4a8 8 0 1 0 10 0',
+ thermostat:'M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0z M12 9v8',
+ blinds:'M4 3.5h16 M5 3.5v13 M19 3.5v13 M5 7.5h14 M5 11.5h14 M5 15.5h14 M12 16.5v4',
+ speaker:'M4 9.5h3.5L12 5.5v13l-4.5-4H4z M15.5 9a4.2 4.2 0 0 1 0 6 M18.2 6.4a8 8 0 0 1 0 11.2',
+ plug:'M9 3v5 M15 3v5 M6.5 8h11v3a5.5 5.5 0 0 1-11 0z M12 16.5V21',
+ scene:'M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z M18.5 14.5l.8 2.2l2.2.8l-2.2.8l-.8 2.2l-.8-2.2l-2.2-.8l2.2-.8z M5.5 15.5l.6 1.6l1.6.6l-1.6.6l-.6 1.6l-.6-1.6l-1.6-.6l1.6-.6z'
+};
+function svg(name){ return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(G[name]||G.app)+'"/></svg>'; }
+
+/* ---------- sample apps (browser preview, or when the TV list can't be read) ---------- */
+var DEMO=[
+ ['livetv','Live TV','tv','#ff6a3d','#a3122e','Television','Channels from your antenna or cable box, with the guide one button away.'],
+ ['media','Media Player','play','#4b93ff','#262c9a','Video','Plays movies and music from USB drives and your home network.'],
+ ['browser','Web Browser','globe','#2ec4b6','#0a5675','Internet','A full browser for the sites that never made a TV app.'],
+ ['music','Music','music','#ff5fa2','#5e1a8f','Audio','Albums, playlists and radio, picked up where you left off.'],
+ ['games','Game Hub','game','#8bd450','#16704a','Games','Cloud games and controller-friendly titles.'],
+ ['homebrew','Homebrew Channel','brew','#ffb347','#a84a00','Homebrew','Installs and updates community apps on your rooted TV.'],
+ ['films','Film Library','film','#c084fc','#33196e','Video','Your movie collection, newest additions first.'],
+ ['photos','Photos','photo','#ffd166','#d4661a','Media','Slideshows from your phone, a USB drive or a network share.'],
+ ['files','Files','folder','#7dd3fc','#1b4f80','Utilities','Browse USB storage and network folders.'],
+ ['terminal','Terminal','terminal','#a3e635','#284611','Homebrew','Shell access for scripts and root tools.'],
+ ['radio','Internet Radio','radio','#fb7185','#6d1836','Audio','Thousands of live stations by genre and country.'],
+ ['weather','Weather','sun','#fcd34d','#0b6a85','Info','Hourly forecast and radar for your area.'],
+ ['settings','TV Settings','sliders','#a5b4c8','#2b3647','System','Picture, sound, network and system options.']
+];
+var DEMO_INPUTS=[['hdmi1','HDMI 1','Game console'],['hdmi2','HDMI 2','PC'],['hdmi3','HDMI 3','Streaming box']];
+var HA_COLORS={light:['#ffd166','#5a4410'],lamp:['#ffb37a','#5a2f10'],fan:['#7ad7f0','#114a5a'],movie:['#c084fc','#33196e'],music:['#ff5fa2','#5e1a8f'],
+  moon:['#9fb4ff','#232a52'],sun:['#fcd34d','#7a4a08'],power:['#ff8a7a','#57201b'],thermostat:['#ff9f6b','#5a2a14'],blinds:['#a5b4c8','#2b3647'],
+  speaker:['#5ed1b8','#0f4a43'],plug:['#8bd450','#16502a'],scene:['#b9a3ff','#2f2368']};
+var DEMO_FAV=['livetv','media','browser','music','games','homebrew','films'];
+function demoApps(){
+  var list=DEMO.map(function(d){return {id:d[0],title:d[1],glyph:d[2],c1:d[3],c2:d[4],category:d[5],desc:d[6],demo:true};});
+  DEMO_INPUTS.forEach(function(d){list.push({id:d[0],title:d[2],port:d[1],glyph:'hdmi',c1:'#5b6475',c2:'#1c212b',category:'Input',desc:'Switch to the '+d[2].toLowerCase()+' connected to '+d[1]+'.',demo:true,input:true});});
+  return list;
+}
+
+
+/* LG's own settings menu, opened by the TV settings button at the top */
+var LG_SETTINGS='com.palm.app.settings';
+
+/* ---------- settings ---------- */
+var ACCENTS=[['auto','Auto'],['#8fd3ff','Ice'],['#63a8ff','Blue'],['#4fd6c4','Teal'],['#7ef0c4','Mint'],['#c5f26b','Lime'],['#ffd166','Gold'],['#ffb37a','Peach'],
+ ['#ff8f70','Coral'],['#ff6b6b','Red'],['#ff9eb5','Rose'],['#ff7ad6','Magenta'],['#d08cff','Orchid'],['#b9a3ff','Violet'],['#f3f5f9','White']];
+var DEFAULTS={wallpaper:'focus',blur:40,dim:40,cardStyle:'landscape',cardSize:'m',bigFav:true,radius:18,splash:true,labels:'focus',
+  focus:'lift',scale:110,accent:'#8fd3ff',parallax:true,scroll:'pinned',hero:true,rowTitles:true,clock:'12',date:true,hints:true,speed:'normal',
+  quality:'full',fps:false,wpTopic:'waterfall',wpSub:'EarthPorn',wpEvery:'15',wpCredit:true,wpZoom:false,wpBlur:false,wpRes:'1440',wpLast:null,favorites:null,favSource:'',order:{},hidden:[],weather:true,wxPlace:'',wxUnits:'f',haAddr:'',haRow:true};
+/* Settings are pages: the first screen lists them (with a short summary each), OK opens one, Back returns. */
+function valName(key){ var o=OPT_BY[key]; if(!o) return ''; var v=S[key], arr=o.values||o.swatch||[]; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) return arr[i][1]; return ''; }
+var OPTIONS=[
+ {h:'Wallpaper',sum:function(){ return valName('wallpaper'); }},
+ {key:'wallpaper',label:'Wallpaper',values:[['focus','Dynamic colors'],['landscapes','Landscapes'],['astro','Astrophotography'],['botanical','Botanical'],['sea','Sea & coast'],['sky','Sky & clouds'],['nature','Nature'],['abstract','Abstract & fractals'],['bing','Bing daily photos'],['apod','NASA picture of the day'],['topic','Custom topic'],['reddit','Subreddit'],['aurora','Gradient: Aurora'],['dusk','Gradient: Dusk'],['ocean','Gradient: Deep ocean'],['ember','Gradient: Ember'],['graphite','Gradient: Graphite']]},
+ {key:'wpTopic',label:'Topic',text:1,when:function(){ return S.wallpaper==='topic'; }},
+ {key:'wpSub',label:'Subreddit  r/',text:1,when:function(){ return S.wallpaper==='reddit'; }},
+ {key:'_nextwp',label:'Next wallpaper',action:1,when:isPhotoMode},
+ {key:'wpEvery',label:'Change every',values:[['5','5 minutes'],['15','15 minutes'],['30','30 minutes'],['60','1 hour'],['1440','Day'],['0','Never']],when:isPhotoMode},
+ {key:'wpRes',label:'Photo quality',values:[['1080','1080p'],['1440','1440p'],['2160','4K']],when:isPhotoMode},
+ {key:'wpCredit',label:'Show photo credit',bool:1,when:isPhotoMode},
+ {key:'wpZoom',label:'Slow drift',bool:1,when:isPhotoMode},
+ {key:'wpBlur',label:'Blur photos',bool:1,when:isPhotoMode},
+ {key:'blur',label:'Blur',range:[0,80,5],fmt:function(v){return v+'px';}},
+ {key:'dim',label:'Dim',range:[0,85,5],fmt:function(v){return v+'%';}},
+ {h:'Cards',sum:function(){ return valName('cardStyle')+'  ·  '+valName('cardSize'); }},
+ {key:'cardStyle',label:'Shape',values:[['landscape','Landscape'],['square','Square'],['poster','Poster'],['icon','Icon']]},
+ {key:'cardSize',label:'Size',values:[['s','Small'],['m','Medium'],['l','Large']]},
+ {key:'bigFav',label:'Larger Favorites row',bool:1},
+ {key:'radius',label:'Corner radius',range:[0,40,2],fmt:function(v){return v+'px';}},
+ {key:'splash',label:'Use app artwork if available',bool:1},
+ {key:'labels',label:'App names',values:[['focus','On focus'],['always','Always'],['never','Hidden']]},
+ {h:'Focus & colour',sum:function(){ return valName('focus')+'  ·  '+valName('accent'); }},
+ {key:'focus',label:'Effect',values:[['lift','Lift'],['glow','Glow'],['outline','Outline'],['frame','Lift + outline']]},
+ {key:'scale',label:'Zoom',range:[100,125,1],fmt:function(v){return v+'%';}},
+ {key:'accent',label:'Accent',swatch:ACCENTS},
+ {key:'parallax',label:'Tilt with pointer',bool:1},
+ {key:'scroll',label:'Row scrolling',values:[['pinned','Focus stays left'],['free','Scroll at edge']]},
+ {h:'Clock & weather',sum:function(){ return valName('clock')+(S.weather?(S.wxPlace?'  ·  '+S.wxPlace:'  ·  Weather: set a place'):''); }},
+ {key:'clock',label:'Clock',values:[['12','12-hour'],['24','24-hour'],['off','Off']]},
+ {key:'date',label:'Date',bool:1},
+ {key:'weather',label:'Weather',bool:1},
+ {key:'wxPlace',label:'Place',text:1,ph:'City or ZIP code',when:function(){ return S.weather; }},
+ {key:'wxUnits',label:'Units',values:[['f','\u00b0F'],['c','\u00b0C']],when:function(){ return S.weather; }},
+ {h:'Layout',sum:function(){ return ''; }},
+ {key:'hero',label:'App details at top',bool:1},
+ {key:'rowTitles',label:'Row titles',bool:1},
+ {key:'hints',label:'Remote hints',bool:1},
+ {h:'Performance',sum:function(){ return valName('quality').replace(' (fastest)','')+'  ·  '+valName('speed'); }},
+ {key:'quality',label:'Effects',values:[['full','Full'],['lite','Lite (fastest)']]},
+ {key:'speed',label:'Animation',values:[['fast','Fast'],['normal','Normal'],['relaxed','Relaxed'],['off','Off']]},
+ {key:'fps',label:'Show frame rate',bool:1},
+ {h:'Apps',sum:function(){ var n=(S.favorites||[]).filter(function(id){return APPS[id];}).length; return n+' favorite'+(n===1?'':'s'); }},
+ {key:'_favs',label:'Choose favorites',action:1},
+ {key:'_refresh',label:'Reload apps and inputs',action:1},
+ {key:'_hidden',label:'Hidden apps',action:1},
+ window.LumenAndroid?{key:'_home',label:'Make Lumen the home screen',action:1}:null,
+ {h:'Home Assistant',sum:function(){ return haStatusText(); }},
+ {key:'haAddr',label:'Address',text:1,ph:'192.168.1.20:8123'},
+ {key:'haRow',label:'Show the row',bool:1},
+ {key:'_haReload',label:'Reload tiles',action:1},
+ {h:'Advanced',sum:function(){ return ''; }},
+ {key:'_debug',label:'Debug log',action:1},
+ {key:'_reset',label:'Reset all settings',action:1}
+].filter(function(o){ return o; });
+var OPT_BY={}; OPTIONS.forEach(function(o){ if(o.key) OPT_BY[o.key]=o; });
+/* wallpapers as canvas paint lists: base colours + soft blobs [x,y,r,colour] in 0..1 units */
+var WALLS={
+ aurora:{base:['#070b14','#070b14'],blobs:[[.18,.22,.5,'#1d7a7a'],[.78,.18,.55,'#4b3aa8'],[.6,.9,.6,'#0f4f6e']]},
+ dusk:{base:['#2a1838','#120a1c'],blobs:[[.75,.15,.5,'#e0705a'],[.2,.8,.65,'#3b1f5e']]},
+ ocean:{base:['#05263b','#020b14'],blobs:[[.7,.2,.55,'#1a6e94']]},
+ ember:{base:['#1a0a07','#140806'],blobs:[[.8,.25,.52,'#b8481c'],[.1,.9,.65,'#4a1208']]},
+ graphite:{base:['#1c1f25','#0c0d10'],blobs:[[.7,.1,.6,'#3a3f4a']]}
+};
+function readJSON(k){ try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function writeJSON(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+var S=Object.assign({},DEFAULTS,readJSON(SKEY)||{});
+function saveS(){ writeJSON(SKEY,S); }
+
+/* ---------- app model ---------- */
+var APPS={}, ALL=[], INPUTS=[], SOURCE='none', rows=[];
+function setApps(list,source){
+  APPS={}; ALL=[]; INPUTS=[]; SOURCE=source;
+  if(source==='tv'&&!S.hiddenInit){ S.hidden=(S.hidden||[]).concat(DEFAULT_HIDDEN.filter(function(x){ return (S.hidden||[]).indexOf(x)<0; })); S.hiddenInit=true; saveS(); }
+  list.forEach(function(a){ APPS[a.id]=a; (a.input?INPUTS:ALL).push(a.id); });
+  haMerge();
+  if(S.favSource!==source || !S.favorites){
+    S.favorites = source==='demo' ? DEMO_FAV.slice() : ALL.filter(function(id){return !APPS[id].system&&!isHidden(id);}).slice(0,7);
+    S.favSource=source; saveS();
+  }
+}
+function orderedAll(){
+  var ord=(S.order&&S.order[SOURCE])||[], out=[];
+  ord.forEach(function(id){ if(APPS[id]&&!APPS[id].input&&out.indexOf(id)<0) out.push(id); });
+  ALL.forEach(function(id){ if(out.indexOf(id)<0) out.push(id); });
+  return out;
+}
+function isHidden(id){ return (S.hidden||[]).indexOf(id)>-1; }
+function buildRows(){
+  var fav=(S.favorites||[]).filter(function(id){return APPS[id]&&!isHidden(id);});
+  rows=[];
+  if(fav.length) rows.push({key:'fav',title:'Favorites',ids:fav});
+  var all=orderedAll().filter(function(id){return !isHidden(id);});
+  if(all.length) rows.push({key:'apps',title:'All apps',ids:all});
+  if(INPUTS.length) rows.push({key:'inputs',title:'Inputs',ids:INPUTS.slice()});
+  var ha=HA_IDS.filter(function(id){ return !isHidden(id); });
+  if(S.haRow&&ha.length) rows.push({key:'ha',title:HA.title||'Home',ids:ha});
+}
+
+/* ---------- colour helpers ---------- */
+function hexRgb(h){ h=(h||'#556').replace('#',''); if(h.length===3) h=h.replace(/./g,'$&$&'); var n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function shade(h,f){ var c=hexRgb(h); return 'rgb('+c.map(function(v){return Math.round(f<0?v*(1+f):v+(255-v)*f);}).join(',')+')'; }
+function hashColor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; var hues=['#3d7bd9','#d9573d','#2aa37a','#8a4fd1','#d1a12f','#2b95b3','#c2407a']; return hues[Math.abs(h)%hues.length]; }
+function colors(a){ if(a.demo||a.ha) return [a.c1,a.c2]; var c=a.color||hashColor(a.id); return [c,shade(c,-.45)]; }
+function faceBg(a){
+  var p=!a.demo&&!a.ha&&COLORS[a.id];
+  if(p){
+    if(p.mode==='seam') return rgbS(p.edge);
+    return 'linear-gradient(140deg,'+rgbS(mixA(p.accent,[255,255,255],.06))+','+rgbS(mixA(p.accent,[6,8,12],.6))+')';
+  }
+  var c=colors(a);
+  if(a.ha) return 'linear-gradient(150deg,'+shade(c[0],-.42)+','+c[1]+')';
+  return 'radial-gradient(ellipse at 28% 18%,'+shade(c[0],.2)+' 0,rgba(255,255,255,0) 58%),linear-gradient(140deg,'+c[0]+','+c[1]+')'; }
+function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return '&#'+c.charCodeAt(0)+';';}); }
+function initials(t){
+  var w=String(t).replace(/[^A-Za-z0-9+ ]/g,' ').trim().split(/\s+/);
+  return ((w[0]||'?').charAt(0)+(w.length>1?w[1].charAt(0):'')).toUpperCase();
+}
+/* inputs and TV settings: glyph plus name on the card itself, so they read without focus */
+function named(a){ return !!(a.input||a.ha); }
+function namedHtml(a){ return svg(a.glyph||'hdmi')+'<div class="nm-t">'+esc(a.title)+'</div>'; }
+/* text under the card: the app name, or for an input the port it's on */
+function labelText(a){ return a.ha?'':a.input&&a.port?a.port:a.title; }
+function artHtml(a){
+  if(named(a)) return namedHtml(a);
+  if(a.demo) return svg(a.glyph);
+  if(ICONS[a.id]) return '<img src="'+esc(ICONS[a.id])+'" alt="">';
+  if(a.input) return svg('hdmi');
+  return '<span class="mono">'+esc(initials(a.title))+'</span>';
+}
+
+/* ---------- card sizes ---------- */
+var SIZES={landscape:{s:[300,169],m:[380,214],l:[470,264]},square:{s:[200,200],m:[250,250],l:[310,310]},
+  poster:{s:[180,270],m:[220,330],l:[262,393]},icon:{s:[150,150],m:[184,184],l:[220,220]}};
+var STEPS=['s','m','l'];
+function dims(key){
+  var i=STEPS.indexOf(S.cardSize);
+  if(key==='fav'&&S.bigFav) i=Math.min(2,i+1);
+  if(key==='inputs'||key==='system') i=Math.max(0,i-1);
+  return SIZES[S.cardStyle][STEPS[i]];
+}
+var GAP=38;
+
+/* ---------- focus state ---------- */
+var F={zone:'rows',row:0,cols:{},tx:{},sIdx:0,mIdx:0,moving:null,top:1,page:-1,lastPage:-1};
+var rowEls=[], focusedCard=null;
+function col(){ var r=rows[F.row]; return r?Math.min(F.cols[r.key]||0,r.ids.length-1):0; }
+
+function render(){
+  buildRows();
+  if(F.row>=rows.length) F.row=Math.max(0,rows.length-1);
+  var host=$('rows'), html='';
+  rows.forEach(function(r,ri){
+    var d=dims(r.key);
+    html+='<div class="row"><div class="row-title">'+esc(r.title)+'</div><div class="track" style="--h:'+d[1]+'px">';
+    r.ids.forEach(function(id,ci){
+      var a=APPS[id], nm=named(a), useSplash=!nm&&S.splash&&a.splash&&S.cardStyle!=='icon'&&(S.cardStyle==='landscape'||!a.banner)&&(a.demo||SPLASH_OK[id]);
+      html+='<div class="card'+(nm?' named':'')+'" style="width:'+d[0]+'px" data-r="'+ri+'" data-c="'+ci+'"><div class="lift"><div class="halo"></div>'+
+        '<div class="face" style="height:'+d[1]+'px;background:'+faceBg(a)+'">'+
+        '<div class="art'+(nm?' nm':'')+(ICONS[id]&&!useSplash&&!nm?' '+iconMode(id):'')+(useSplash?' splash':'')+'" data-id="'+esc(id)+'"'+(useSplash?' style="background-image:url(\''+esc(a.splash)+'\')"':'')+'>'+artHtml(a)+'</div><div class="sheen"></div></div></div>'+
+        '<div class="nudge"><span>&#8249;</span><span>&#8250;</span></div><div class="label">'+esc(labelText(a))+'</div></div>';
+    });
+    html+='</div></div>';
+  });
+  host.innerHTML=html;
+  focusedCard=null;
+  rowEls=[];
+  var rowNodes=host.children;
+  rows.forEach(function(r,ri){
+    var el=rowNodes[ri], d=dims(r.key), tr=el.children[1];
+    /* measure once per render, never during navigation */
+    rowEls.push({el:el,track:tr,cards:tr.children,w:d[0],h:d[1],top:el.offsetTop,height:el.offsetHeight});
+    if(F.tx[r.key]===undefined) F.tx[r.key]=0;
+    tr.style.transform='translate3d('+F.tx[r.key]+'px,0,0)';
+  });
+  applyFocus(true);
+}
+
+function applyFocus(force){
+  if(focusedCard){ focusedCard.classList.remove('focus'); focusedCard.classList.remove('moving'); focusedCard=null; }
+  $('tvset').classList.toggle('focus',F.zone==='top'&&F.top===0);
+  $('gear').classList.toggle('focus',F.zone==='top'&&F.top===1);
+  stage.classList.toggle('top-on',F.zone==='top');
+  stage.classList.toggle('peek',F.zone==='peek'||F.zone==='top');
+  stage.classList.toggle('peek-bg',F.zone==='peek');
+  if(!rows.length){ showEmptyHero(); return; }
+  if(F.zone==='top'){ topHero(); return; }
+  var r=rows[F.row], re=rowEls[F.row], c=col();
+  F.cols[r.key]=c;
+  var card=re.cards[c];
+  if(F.zone==='rows'||F.zone==='menu'){ card.classList.add('focus'); if(F.moving) card.classList.add('moving'); focusedCard=card; }
+
+  var pos=c*(re.w+GAP), tx=F.tx[r.key]||0, view=1920-240;
+  if(S.scroll==='pinned'){ tx=-pos; }
+  else { if(pos+tx<0) tx=-pos; else if(pos+re.w+tx>view-60) tx=-(pos+re.w-view+60); }
+  if(tx!==F.tx[r.key]||force){ F.tx[r.key]=tx; re.track.style.transform='translate3d('+tx+'px,0,0)'; }
+
+  var anchor=S.hero?Math.max(450,Math.min(580,1080-70-re.height)):Math.max(200,Math.min(300,1080-70-re.height));
+  var ty=anchor-re.top;
+  if(ty!==F.ty||force){ F.ty=ty; $('rows').style.transform='translate3d(0,'+ty+'px,0)'; }
+  if(F.lastRow!==F.row||force){
+    rowEls.forEach(function(x,i){ x.el.className='row'+(i<F.row?' above':'')+(i===F.row?' cur':''); });
+    F.lastRow=F.row;
+  }
+  updateHero(APPS[r.ids[c]],force);
+}
+
+/* ---------- hero ---------- */
+var heroId=null, bdTimer=null, heroFlip=false, lastNav=0;
+function setHeroText(eyebrow,title,descHtml){
+  $('eyebrow').textContent=eyebrow; $('title').textContent=title; $('desc').innerHTML=descHtml;
+}
+var TOP_HERO=[['TV settings','Picture, sound, network and everything else in LG\u2019s own settings menu.'],
+              ['Lumen settings','Wallpaper, card style, focus effect, favorites and the rest of this home screen.']];
+function topHero(){
+  clearTimeout(heroT);
+  var t=TOP_HERO[F.top]; heroId=null;
+  setHeroText(F.top===0&&ON_ANDROID?'Android':F.top===0?'LG webOS':'Lumen '+LUMEN_VERSION, F.top===0&&ON_ANDROID?'Android settings':t[0], esc(t[1]));
+  var h=$('hero'); if(S.speed!=='off'){ heroFlip=!heroFlip; h.className=heroFlip?'swapA':'swapB'; }
+}
+function showEmptyHero(){
+  heroId=null;
+  setHeroText('Lumen', SOURCE==='none'?'Loading your apps…':'No apps to show', SOURCE==='none'?'Reading the app list from your TV.':'Unhide apps in Settings, or reload the app list.');
+  paintBackdrop(null);
+}
+var heroT=null;
+function heroText(a,animate){
+  if(!a) return;
+  var isFav=(S.favorites||[]).indexOf(a.id)>-1;
+  var desc=a.desc?esc(a.desc):'';                  /* no package ids or versions here: those are for the debug log */
+  var meta=a.ha?(HA.title||'Home Assistant'):a.input?'Input'+(a.port&&a.port!==a.title?'  ·  '+a.port:''):(a.category||(a.system?'System app':'App'));
+  setHeroText(meta+(isFav?'  ·  Favorite':''), a.title, desc);
+  updateAutoAccent(a);
+  var h=$('hero');
+  if(S.speed==='off'||(!animate&&now()-lastNav<180)){ h.className=''; }
+  else { heroFlip=!heroFlip; h.className=heroFlip?'swapA':'swapB'; }
+}
+function updateHero(a,force){
+  if(!a) return;
+  if(a.id===heroId&&!force) return;
+  heroId=a.id;
+  /* fast scrolling: the text waits until the focus stops (no layout of 96 px type per step), then fades in */
+  var rapid=now()-lastNav<180;
+  clearTimeout(heroT);
+  if(rapid&&!force){ heroT=setTimeout(function(){ heroText(APPS[heroId],true); },170); }
+  else heroText(a,false);
+  clearTimeout(bdTimer);
+  bdTimer=setTimeout(function(){ paintBackdrop(APPS[heroId]); }, force?0:(rapid?320:200));
+}
+
+/* ---------- backdrop painting ----------
+   Drawn into a half-size canvas that CSS stretches to full screen.
+   Cross-fades are blended inside that small canvas, so the TV only ever composites one full-screen layer. */
+var bdA=$('bdA'), bdB=$('bdB'), bdFlip=false, bdKey=null, imgCache={}, nextCv=bdA;
+/* paint into the hidden layer, then let the compositor cross-fade the two layers (opacity only) */
+function fadeTo(){
+  var on=nextCv, off=on===bdA?bdB:bdA;
+  on.style.transitionDuration=(S.quality==='lite'||S.speed==='off')?'0s':({fast:.25,normal:.5,relaxed:.75}[S.speed]+'s');
+  on.classList.add('on'); off.classList.remove('on');
+  /* next paint goes into the layer that just faded out */
+  nextCv=off;
+}
+var HAS_FILTER=(function(){ try{ var c=document.createElement('canvas').getContext('2d'); return typeof c.filter==='string'; }catch(e){ return false; } })();
+var HAS_PATH2D=typeof window.Path2D==='function';
+function loadImg(src,cb){
+  var c=imgCache[src];
+  if(c){ if(c.ok) cb(c.img); else if(!c.failed) c.wait.push(cb); return; }
+  c=imgCache[src]={img:new Image(),ok:false,failed:false,wait:[cb]};
+  c.img.onload=function(){ c.ok=true; var w=c.wait; c.wait=[]; w.forEach(function(f){f(c.img);}); };
+  c.img.onerror=function(){ c.failed=true; c.wait=[]; };
+  c.img.src=src;
+}
+/* colour helpers for palettes: arrays [r,g,b] */
+function toRgb(c){ if(!c) return [80,90,110]; if(c.join) return c; if(c.charAt(0)==='#') return hexRgb(c); var m=String(c).match(/\d+/g); return m?[+m[0],+m[1],+m[2]]:[80,90,110]; }
+function rgbS(c,a){ c=toRgb(c); return a===undefined?'rgb('+c.join(',')+')':'rgba('+c.join(',')+','+a+')'; }
+function mixA(a,b,t){ a=toRgb(a); b=toRgb(b); return [0,1,2].map(function(i){ return Math.round(a[i]+(b[i]-a[i])*t); }); }
+function satOf(c){ var mx=Math.max(c[0],c[1],c[2]), mn=Math.min(c[0],c[1],c[2]); return mx?(mx-mn)/mx:0; }
+function lumOf(c){ return (c[0]*.3+c[1]*.59+c[2]*.11)/255; }
+function palette(a){
+  if(!a) return {edge:[20,24,32],accent:[60,70,90]};
+  if(a.demo||a.ha) return {edge:toRgb(a.c2),accent:toRgb(a.c1)};
+  var p=COLORS[a.id]; if(p) return p;
+  var c=colors(a); return {edge:toRgb(c[1]),accent:toRgb(c[0])};
+}
+
+/* fine grain over the backdrop so dark gradients don't band on the TV panel */
+var NOISE=null;
+function noisePattern(x){
+  if(!NOISE){
+    NOISE=document.createElement('canvas'); NOISE.width=NOISE.height=256;
+    var c=NOISE.getContext('2d'), d=c.createImageData(256,256);
+    for(var i=0;i<d.data.length;i+=4){ var v=Math.random()<.5?0:255; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=Math.round(Math.random()*2.4); }
+    c.putImageData(d,0,0);
+  }
+  return x.createPattern(NOISE,'repeat');
+}
+/* ambient colour field built from the app's own icon colours (Apple TV style) */
+function paintField(x,W,H,p){
+  var e=toRgb(p.edge), ac=toRgb(p.accent);
+  var h1=satOf(ac)>.22?ac:(satOf(e)>.22?e:ac);
+  if(lumOf(h1)>.82) h1=mixA(h1,[40,48,64],.45);
+  var h2=(satOf(e)>.22&&lumOf(e)>.07&&lumOf(e)<.85)?e:mixA(h1,[18,22,30],.55);
+  x.fillStyle=rgbS(mixA(h2,[5,7,11],.8)); x.fillRect(0,0,W,H);
+  var blob=function(cx,cy,r,c,a){
+    var g=x.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,r*W);
+    g.addColorStop(0,rgbS(c,a)); g.addColorStop(.45,rgbS(c,a*.5)); g.addColorStop(1,rgbS(c,0));
+    x.fillStyle=g; x.fillRect(0,0,W,H);
+  };
+  blob(.80,.28,.72,h1,1);
+  blob(1.02,.95,.6,h2,.6);
+  blob(.52,-.12,.48,mixA(h1,[255,255,255],.22),.32);
+}
+/* app artwork: shrink, then enlarge in 2x steps; gives a smooth blur with no blocky edges */
+function softDraw(x,W,H,img,blur){
+  var sw=Math.max(16,Math.round(W/(1+blur/1.2))), sh=Math.round(sw*H/W);
+  var c=document.createElement('canvas'); c.width=sw; c.height=sh;
+  var cx=c.getContext('2d'), r=Math.max(sw/img.width,sh/img.height);
+  cx.imageSmoothingQuality='high';
+  cx.drawImage(img,(sw-img.width*r)/2,(sh-img.height*r)/2,img.width*r,img.height*r);
+  var cur=c;
+  while(cur.width*2<W){
+    var n=document.createElement('canvas'); n.width=cur.width*2; n.height=cur.height*2;
+    var nx=n.getContext('2d'); nx.imageSmoothingQuality='high'; nx.drawImage(cur,0,0,n.width,n.height); cur=n;
+  }
+  x.imageSmoothingQuality='high';
+  if(HAS_FILTER&&blur>0) x.filter='blur(2px)';
+  x.drawImage(cur,-6,-6,W+12,H+12);
+  x.filter='none';
+}
+function paintBackdrop(a){
+  if(isPhotoMode()&&WP.on) return;                 /* a photo wallpaper is showing */
+  var spl=!!(a&&!a.demo&&S.splash&&a.splash&&SPLASH_OK[a.id]);
+  var key=(S.wallpaper==='focus'?(a?a.id+(COLORS[a.id]?'p':'')+(spl?'s':''):'_none'):S.wallpaper)+'|'+S.blur+'|'+S.dim+'|'+S.splash+'|'+S.quality;
+  if(key===bdKey) return; bdKey=key;
+  /* drawn at half the screen size (Lite: quarter); the 2x stretch is invisible on soft imagery */
+  /* soft colour fields are painted small (the stretch is invisible on them); app artwork gets more pixels */
+  var W=(spl&&S.wallpaper==='focus'&&S.quality!=='lite')?960:480, H=W*9/16, on=nextCv;
+  if(on.width!==W){ on.width=W; on.height=H; }
+  var x=on.getContext('2d');
+  var draw=function(img){
+    if(bdKey!==key) return;
+    x.save(); x.globalAlpha=1; x.filter='none';
+    if(S.wallpaper!=='focus'||!a) paintWall(x,W,H,WALLS[S.wallpaper]||WALLS.graphite);
+    else if(img) softDraw(x,W,H,img,S.blur);
+    else paintField(x,W,H,palette(a));
+    x.fillStyle='rgba(0,0,0,'+(S.dim/100)+')'; x.fillRect(0,0,W,H);
+    shadeLayer(x,W,H);
+    if(W>=960){ x.fillStyle=noisePattern(x); x.fillRect(0,0,W,H); }
+    x.restore();
+    fadeTo();
+  };
+  if(S.wallpaper==='focus'&&spl) loadImg(a.splash,draw);
+  else draw(null);
+}
+function paintWall(x,W,H,w){
+  var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,w.base[0]); g.addColorStop(1,w.base[1]);
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  w.blobs.forEach(function(b){
+    var cx=b[0]*W, cy=b[1]*H, r=b[2]*W, rg=x.createRadialGradient(cx,cy,0,cx,cy,r), c=hexRgb(b[3]).join(',');
+    rg.addColorStop(0,'rgba('+c+',1)'); rg.addColorStop(1,'rgba('+c+',0)'); x.fillStyle=rg; x.fillRect(0,0,W,H);
+  });
+}
+function shadeLayer(x,W,H){
+  var g=x.createLinearGradient(0,0,W,0); g.addColorStop(0,'rgba(4,6,10,.82)'); g.addColorStop(.4,'rgba(4,6,10,.38)'); g.addColorStop(.7,'rgba(4,6,10,0)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  g=x.createLinearGradient(0,H,0,0); g.addColorStop(0,'rgba(4,6,10,.92)'); g.addColorStop(.35,'rgba(4,6,10,.55)'); g.addColorStop(.62,'rgba(4,6,10,0)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,'rgba(4,6,10,.5)'); g.addColorStop(.18,'rgba(4,6,10,0)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+}
+
+/* ---------- photo wallpapers ----------
+   Curated high-resolution photos from Wikimedia Commons "featured pictures" (hand-picked, CC-licensed),
+   Bing's daily photo, NASA's Astronomy Picture of the Day, or a subreddit. Lists are cached on the TV;
+   photos rotate on a timer, cross-fading on two layers (opacity only). */
+var PHOTO_SOURCES={landscapes:1,astro:1,botanical:1,nature:1,sea:1,sky:1,abstract:1,topic:1,bing:1,apod:1,reddit:1};
+function isPhotoMode(){ return !!PHOTO_SOURCES[S.wallpaper]; }
+var FP='incategory:Featured_pictures_on_Wikimedia_Commons ';
+var WP_QUERIES={
+  landscapes:['incategory:Featured_pictures_of_landscapes'],
+  astro:['incategory:Featured_pictures_of_astronomy'],
+  botanical:['incategory:Featured_pictures_of_plants'],
+  nature:['incategory:Featured_pictures_of_nature'],
+  sea:[FP+'sea',FP+'coast',FP+'ocean',FP+'waves'],
+  sky:[FP+'clouds',FP+'sunset',FP+'aurora',FP+'sky'],
+  abstract:[FP+'fractal',FP+'abstract',FP+'"long exposure"',FP+'bokeh']
+};
+var WP_UA='Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0 Safari/537.36 LumenLauncher/2.4';
+function wpWidth(){ return {'1080':1920,'1440':2560,'2160':3840}[S.wpRes]||2560; }
+function wpKey(){
+  var k=S.wallpaper;
+  if(k==='topic') k+=':'+String(S.wpTopic||'').toLowerCase();
+  if(k==='reddit') k+=':'+String(S.wpSub||'').toLowerCase();
+  return 'lumen.wp.'+k+'@'+S.wpRes;
+}
+function stripTags(s){ var d=document.createElement('div'); d.innerHTML=String(s||''); return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+
+/* GET text: directly first (CORS), then through the TV's root shell with curl/wget */
+function getText(url,cb){
+  var done=false, fin=function(t,e){ if(done) return; done=true; cb(t,e); };
+  var viaRoot=function(why){
+    if(!ON_TV){ return fin(null,why); }
+    dlog('wallpaper: direct fetch failed ('+why+'), trying root');
+    rootExec('curl -sL --max-time 20 -A '+shq(WP_UA)+' '+shq(url)+' 2>/dev/null || wget -qO- -T 20 -U '+shq(WP_UA)+' '+shq(url),function(res,err){
+      if(err||!res||!res.stdoutString) return fin(null,why+'; root: '+(err||'empty reply'));
+      fin(res.stdoutString,null);
+    });
+  };
+  try{
+    var x=new XMLHttpRequest();
+    x.open('GET',url,true); x.timeout=12000;
+    x.onload=function(){ if(x.status>=200&&x.status<300&&x.responseText) fin(x.responseText,null); else viaRoot('HTTP '+x.status); };
+    x.onerror=function(){ viaRoot('blocked or offline'); };
+    x.ontimeout=function(){ viaRoot('timeout'); };
+    x.send();
+  }catch(e){ viaRoot(String(e&&e.message||e)); }
+}
+function getJSON(url,cb){ getText(url,function(t,e){ if(!t) return cb(null,e); var j=null; try{ j=JSON.parse(t); }catch(x){ return cb(null,'unreadable reply'); } cb(j,null); }); }
+
+/* source adapters → [{url,title,by,src}] */
+function commonsSearch(q,cb){
+  var w=wpWidth();
+  var base='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=50'+
+    '&prop=imageinfo&iiprop=url%7Csize%7Cextmetadata&iiextmetadatafilter=ObjectName%7CArtist&iiurlwidth='+w+
+    '&gsrsearch='+encodeURIComponent(q+' filetype:bitmap filew:>1900');
+  var parse=function(j){
+    var out=[], pages=(j&&j.query&&j.query.pages)||{};
+    Object.keys(pages).forEach(function(k){
+      var p=pages[k], ii=p.imageinfo&&p.imageinfo[0]; if(!ii) return;
+      var ow=ii.width, oh=ii.height; if(!ow||!oh) return;
+      var r=ow/oh; if(r<1.3||r>2.7||ow<1900) return;               /* landscape photos only */
+      var m=ii.extmetadata||{};
+      var title=stripTags(m.ObjectName&&m.ObjectName.value)||String(p.title||'').replace(/^File:/,'').replace(/\.[a-z0-9]+$/i,'').replace(/_/g,' ');
+      out.push({url:ii.thumburl||ii.url,title:title,by:stripTags(m.Artist&&m.Artist.value),src:'Wikimedia Commons'});
+    });
+    return out;
+  };
+  getJSON(base+'&gsrsort=random',function(j,e){
+    if(j&&!j.error) return cb(parse(j),null);
+    /* older search back-ends may not support random order */
+    getJSON(base,function(j2,e2){ if(j2&&!j2.error) cb(parse(j2),null); else cb(null,e2||(j2&&j2.error&&j2.error.info)||e); });
+  });
+}
+function wpFetchList(cb){
+  var s=S.wallpaper;
+  if(WP_QUERIES[s]||s==='topic'){
+    var qs=s==='topic'?[FP+String(S.wpTopic||'mountains')]:WP_QUERIES[s], all=[], left=qs.length, errs=[];
+    qs.forEach(function(q){ commonsSearch(q,function(list,err){ if(list) all=all.concat(list); else errs.push(err); if(--left===0) cb(all.length?all:null,errs.join('; ')||'no matching photos'); }); });
+    return;
+  }
+  if(s==='bing'){
+    var items=[], n=2, errB=[];
+    [0,8].forEach(function(idx){
+      getJSON('https://www.bing.com/HPImageArchive.aspx?format=js&idx='+idx+'&n=8&mkt=en-US',function(j,e){
+        if(j&&j.images) j.images.forEach(function(im){
+          if(!im.urlbase) return;
+          var cr=String(im.copyright||''), m=/^(.*?)\s*\((©.*)\)\s*$/.exec(cr);
+          items.push({url:'https://www.bing.com'+im.urlbase+(S.wpRes==='1080'?'_1920x1080.jpg':'_UHD.jpg'),title:im.title||(m?m[1]:cr),by:m?m[1]+'  '+m[2]:cr,src:'Bing'});
+        }); else errB.push(e);
+        if(--n===0) cb(items.length?items:null,errB.join('; '));
+      });
+    });
+    return;
+  }
+  if(s==='apod'){
+    getJSON('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&count=40',function(j,e){
+      if(!j||!j.length) return cb(null,e||(j&&j.msg)||'no reply');
+      cb(j.filter(function(a){ return a.media_type==='image'&&(a.hdurl||a.url); }).map(function(a){
+        return {url:a.hdurl||a.url,title:a.title||'Astronomy Picture of the Day',by:a.copyright?'© '+String(a.copyright).replace(/\s+/g,' ').trim():'NASA',src:'NASA APOD',check:1};
+      }),null);
+    });
+    return;
+  }
+  if(s==='reddit'){
+    var sub=String(S.wpSub||'EarthPorn').replace(/^\/?r\//i,'').replace(/[^A-Za-z0-9_+]/g,'');
+    /* Reddit closed its anonymous JSON in 2026; its RSS feed sometimes still answers from a home connection */
+    getText('https://www.reddit.com/r/'+sub+'/top/.rss?t=month&limit=60',function(t,e){
+      if(!t) return cb(null,e);
+      var list=[];
+      t.split(/<entry>/).slice(1).forEach(function(en){
+        var tm=/<title>([\s\S]*?)<\/title>/.exec(en), um=/https:\/\/(?:i\.redd\.it|i\.imgur\.com)\/[A-Za-z0-9_-]+\.(?:jpe?g|png)/i.exec(en.replace(/&amp;/g,'&'));
+        if(um) list.push({url:um[0],title:stripTags(tm?tm[1].replace(/&amp;/g,'&'):''),by:'r/'+sub,src:'Reddit',check:1});
+      });
+      cb(list.length?list:null,list.length?null:(/<html/i.test(t)?'Reddit refused the request':'no image posts found'));
+    });
+  }
+}
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+var WP={list:null,key:'',i:0,shownAt:0,cur:null,busy:false,flip:false,on:false,loadingKey:''};
+function wpEnsureList(cb){
+  var key=wpKey();
+  if(WP.list&&WP.key===key&&WP.list.length) return cb(true);
+  var c=readJSON(key);
+  var maxAge=(S.wallpaper==='bing'||S.wallpaper==='apod')?6*3600e3:24*3600e3;
+  if(c&&c.items&&c.items.length){
+    WP.list=c.items; WP.key=key; WP.i=c.i||0;
+    if(Date.now()-c.t<maxAge) return cb(true);
+    wpRefreshList(key,function(){});                 /* stale: use it now, refresh quietly */
+    return cb(true);
+  }
+  wpRefreshList(key,cb);
+}
+function wpRefreshList(key,cb){
+  if(WP.loadingKey===key) return cb(false); WP.loadingKey=key;
+  dlog('wallpaper: loading '+S.wallpaper+' list');
+  wpFetchList(function(list,err){
+    WP.loadingKey='';
+    if(wpKey()!==key) return cb(false);
+    if(!list||!list.length){ dlog('wallpaper: '+S.wallpaper+' failed ('+err+')'); toast('Couldn’t load wallpapers: '+(err||'no photos')); return cb(false); }
+    shuffle(list);
+    WP.list=list; WP.key=key; WP.i=0;
+    writeJSON(key,{t:Date.now(),items:list.slice(0,150),i:0});
+    dlog('wallpaper: '+list.length+' photos from '+S.wallpaper);
+    cb(true);
+  });
+}
+/* preload, check it's a usable landscape photo, decode, then cross-fade it in */
+function wpNext(manual){
+  if(!isPhotoMode()||WP.busy) return;
+  WP.busy=true;
+  wpEnsureList(function(ok){
+    if(!ok||!WP.list||!WP.list.length){ WP.busy=false; wpOff(); return; }
+    var tries=0, key=WP.key;
+    var attempt=function(){
+      if(wpKey()!==key){ WP.busy=false; return; }
+      if(tries++>=8){ WP.busy=false; dlog('wallpaper: no usable photo after 8 tries'); return; }
+      var it=WP.list[WP.i%WP.list.length]; WP.i=(WP.i+1)%WP.list.length;
+      writeJSON(key,{t:(readJSON(key)||{}).t||Date.now(),items:WP.list.slice(0,150),i:WP.i});
+      var im=new Image();
+      im.onload=function(){
+        var r=im.naturalWidth/im.naturalHeight;
+        if(it.check&&(im.naturalWidth<1600||r<1.25||r>2.8)){ dlog('wallpaper: skipped (not a wide photo)',it.url); return attempt(); }
+        var show=function(){ WP.busy=false; wpShow(it,im); };
+        if(im.decode) im.decode().then(show,show); else show();
+      };
+      im.onerror=function(){ dlog('wallpaper: image failed',it.url); attempt(); };
+      im.src=it.url;
+    };
+    attempt();
+  });
+}
+function wpShow(it,im){
+  WP.cur=it; WP.shownAt=Date.now(); WP.on=true;
+  S.wpLast={url:it.url,title:it.title,by:it.by,src:it.src,mode:S.wallpaper}; saveS();
+  if(S.wpBlur){
+    /* frosted look: blurred into the backdrop canvases instead of shown sharp */
+    stage.classList.remove('photo');
+    bdKey='photo:'+it.url+'|'+S.blur+'|'+S.dim;
+    var on=nextCv; on.width=960; on.height=540;
+    var x=on.getContext('2d'); x.save(); softDraw(x,960,540,im,Math.max(10,S.blur));
+    x.fillStyle='rgba(0,0,0,'+(S.dim/100*.8)+')'; x.fillRect(0,0,960,540); shadeLayer(x,960,540);
+    x.fillStyle=noisePattern(x); x.fillRect(0,0,960,540); x.restore();
+    fadeTo();
+  } else {
+    WP.flip=!WP.flip;
+    var on2=$(WP.flip?'phA':'phB'), off2=$(WP.flip?'phB':'phA');
+    on2.style.backgroundImage='url("'+it.url.replace(/"/g,'%22')+'")';
+    on2.classList.toggle('kb',!!S.wpZoom&&S.quality!=='lite');
+    stage.classList.add('photo');
+    on2.classList.add('on'); off2.classList.remove('on');
+  }
+  wpCredit();
+}
+function wpCredit(){
+  var c=$('credit'), it=WP.cur;
+  if(!it||!WP.on||!S.wpCredit||!isPhotoMode()){ c.hidden=true; return; }
+  c.innerHTML='<b></b><span></span>';
+  c.firstChild.textContent=it.title||'';
+  c.lastChild.textContent=(it.by?it.by+'  ·  ':'')+it.src;
+  c.hidden=false;
+}
+function wpOff(){
+  WP.on=false; stage.classList.remove('photo');
+  $('phA').classList.remove('on'); $('phB').classList.remove('on');
+  $('credit').hidden=true;
+  bdKey=null; paintBackdrop(heroId?APPS[heroId]:null);
+}
+function wpApply(reload){
+  $('phShade').style.backgroundColor='rgba(0,0,0,'+(S.dim/100*.8)+')';
+  if(!isPhotoMode()){ if(WP.on) wpOff(); return; }
+  if(reload||!WP.on){ WP.list=null; wpNext(); }
+  else wpCredit();
+}
+/* rotation; pauses while another app is in front */
+setInterval(function(){
+  if(!isPhotoMode()||document.hidden) return;
+  var every=+S.wpEvery; if(!every||!WP.on) return;
+  if(Date.now()-WP.shownAt>every*60000) wpNext();
+},30000);
+
+
+/* ---------- apply settings ---------- */
+function applySettings(){
+  var cls=['fx-'+S.focus,'labels-'+S.labels,'style-'+S.cardStyle];
+  if(S.quality==='lite') cls.push('lite');
+  if(!S.hero) cls.push('no-hero');
+  if(!S.rowTitles) cls.push('no-row-titles');
+  if(S.clock==='off') cls.push('no-clock');
+  if(!S.date) cls.push('no-date');
+  if(!S.hints) cls.push('no-hints');
+  if(!$('banner').hidden) cls.push('has-banner');
+  if(tiltOn) cls.push('tilt');
+  if(F.zone==='top') cls.push('top-on');
+  if(F.zone==='peek'||F.zone==='top') cls.push('peek');
+  if(F.zone==='peek') cls.push('peek-bg');
+  if(S.speed==='off') cls.push('speed-off');
+  if(gliding) cls.push('glide');
+  if(!$('wx').hidden) cls.push('has-wx');
+  if(stage.classList.contains('boot')) cls.push('boot');
+  if(typeof WP!=='undefined'&&WP.on&&!S.wpBlur&&isPhotoMode()) cls.push('photo');
+  stage.className=cls.join(' ');
+  var st=stage.style;
+  setAccent(S.accent==='auto'?(autoAccent||'#8fd3ff'):S.accent);
+  st.setProperty('--radius',S.radius+'px');
+  st.setProperty('--scale',S.scale/100);
+  st.setProperty('--dur',{fast:'.18s',normal:'.3s',relaxed:'.5s',off:'0s'}[S.speed]);
+  setFps(S.fps);
+  tick();
+}
+
+/* ---------- accent ----------
+   Auto takes the focused app's own colour (from its icon), brightened and saturated enough to read on
+   the dark backdrop; greys fall back to Ice. Changed when the focus settles, never per step. */
+var autoAccent=null, curAccent=null;
+function setAccent(hex){
+  if(hex===curAccent) return; curAccent=hex;
+  var c=hexRgb(hex), st=stage.style;
+  st.setProperty('--accent',hex);
+  st.setProperty('--accent-glow','rgba('+c.join(',')+',.5)');
+}
+function rgbHex(c){ return '#'+c.map(function(v){ v=Math.max(0,Math.min(255,Math.round(v))); return (v<16?'0':'')+v.toString(16); }).join(''); }
+function readableAccent(rgb){
+  var r=rgb[0]/255,g=rgb[1]/255,b=rgb[2]/255, mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2, d=mx-mn, h=0, sat=0;
+  if(d){ sat=d/(1-Math.abs(2*l-1)); h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; if(h<0) h+=360; }
+  if(sat<.14) return '#8fd3ff';
+  sat=Math.max(.55,Math.min(.9,sat)); l=Math.max(.66,Math.min(.78,l));
+  var C=(1-Math.abs(2*l-1))*sat, X=C*(1-Math.abs((h/60)%2-1)), m=l-C/2, o;
+  o=h<60?[C,X,0]:h<120?[X,C,0]:h<180?[0,C,X]:h<240?[0,X,C]:h<300?[X,0,C]:[C,0,X];
+  return rgbHex(o.map(function(v){ return (v+m)*255; }));
+}
+function updateAutoAccent(a){
+  if(S.accent!=='auto'||!a) return;
+  autoAccent=readableAccent(toRgb(palette(a).accent));
+  setAccent(autoAccent);
+}
+
+/* ---------- weather ----------
+   Open-Meteo (free, no account): the place typed in settings is looked up once (name or postal code),
+   the forecast refreshed every 30 minutes and cached so it shows at once on start. Fails quietly. */
+var WX=readJSON('lumen.wx.v1')||{}, wxT=null;
+var WX_GLYPH={
+ sun:'M12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z M12 2.5v2 M12 19.5v2 M2.5 12h2 M19.5 12h2 M5.3 5.3l1.4 1.4 M17.3 17.3l1.4 1.4 M5.3 18.7l1.4-1.4 M17.3 6.7l1.4-1.4',
+ moon:'M19 14.5A7.5 7.5 0 1 1 9.5 5a6 6 0 0 0 9.5 9.5z',
+ partly:'M8.5 4.5v1.3 M3.3 9.5h1.3 M4.8 5.8l.9.9 M12.2 5.8l-.9.9 M6.2 11.6A3.2 3.2 0 1 1 11.6 8 M8 19.5h9.5a3.5 3.5 0 0 0 .3-7a5 5 0 0 0-9.6 1.4A2.8 2.8 0 0 0 8 19.5z',
+ partlyNight:'M10.8 4.6A3.8 3.8 0 0 0 6 10.6 M8 19.5h9.5a3.5 3.5 0 0 0 .3-7a5 5 0 0 0-9.6 1.4A2.8 2.8 0 0 0 8 19.5z',
+ cloud:'M7 18.5h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 18.5z',
+ fog:'M7 13.5h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 13.5z M4 17h16 M6 20.5h12',
+ rain:'M7 14h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z M8.5 17l-1 2.5 M12.5 17l-1 2.5 M16.5 17l-1 2.5',
+ snow:'M7 14h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z M8.5 18h.01 M12 20h.01 M15.5 18h.01 M10.2 21.5h.01 M13.8 21.5h.01',
+ storm:'M7 14h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z M12.5 14.5l-2 3.5h3l-2 3.5'
+};
+/* WMO weather codes, as Open-Meteo reports them */
+function wxKind(code,day){
+  if(code===0||code===1) return day?'sun':'moon';
+  if(code===2) return day?'partly':'partlyNight';
+  if(code===3) return 'cloud';
+  if(code===45||code===48) return 'fog';
+  if((code>=71&&code<=77)||code===85||code===86) return 'snow';
+  if(code>=95) return 'storm';
+  if((code>=51&&code<=67)||(code>=80&&code<=82)) return 'rain';
+  return 'cloud';
+}
+function wxShow(){
+  var el=$('wx'), ok=S.weather&&WX.temp!==undefined&&WX.units===S.wxUnits&&WX.lat===S.wxLat&&WX.lon===S.wxLon&&Date.now()-WX.t<3*3600e3;
+  if(!ok){ el.hidden=true; stage.classList.remove('has-wx'); return; }
+  $('wx-icon').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+WX_GLYPH[wxKind(WX.code,WX.day)]+'"/></svg>';
+  $('wx-temp').textContent=Math.round(WX.temp)+'\u00b0';
+  $('wx-range').textContent=(WX.hi!==undefined?'H '+Math.round(WX.hi)+'\u00b0   L '+Math.round(WX.lo)+'\u00b0':'');
+  el.hidden=false;
+  stage.classList.add('has-wx');
+}
+function wxRefresh(now){
+  clearTimeout(wxT); wxShow();
+  if(!S.weather||S.wxLat===undefined){ return; }
+  var fresh=WX.units===S.wxUnits&&WX.lat===S.wxLat&&WX.lon===S.wxLon&&Date.now()-WX.t<30*60e3;
+  if(fresh&&!now){ wxT=setTimeout(function(){ wxRefresh(true); },30*60e3-(Date.now()-WX.t)); return; }
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+S.wxLat+'&longitude='+S.wxLon+
+    '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto'+
+    (S.wxUnits==='f'?'&temperature_unit=fahrenheit':'');
+  getJSON(url,function(j,err){
+    if(!j||!j.current){ dlog('weather: forecast failed ('+(err||(j&&j.reason)||'no data')+')'); wxT=setTimeout(function(){ wxRefresh(true); },10*60e3); return; }
+    WX={t:Date.now(),lat:S.wxLat,lon:S.wxLon,units:S.wxUnits,place:S.wxPlace,temp:j.current.temperature_2m,code:j.current.weather_code,day:j.current.is_day!==0,
+        hi:j.daily&&j.daily.temperature_2m_max?j.daily.temperature_2m_max[0]:undefined,lo:j.daily&&j.daily.temperature_2m_min?j.daily.temperature_2m_min[0]:undefined};
+    writeJSON('lumen.wx.v1',WX); wxShow();
+    wxT=setTimeout(function(){ wxRefresh(true); },30*60e3);
+  });
+}
+/* look the typed place up once: a city ("Austin"), "Austin, Texas" or a postal code */
+function wxSetPlace(q,inp){
+  toast('Looking up '+q+'\u2026');
+  var name=q.split(',')[0].trim();
+  getJSON('https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&format=json&name='+encodeURIComponent(name),function(j,err){
+    var list=(j&&j.results)||[], hint=q.indexOf(',')>-1?q.slice(q.indexOf(',')+1).trim().toLowerCase():'', r=list[0];
+    if(hint) for(var i=0;i<list.length;i++){ var x=list[i]; if([x.admin1,x.country,x.country_code].join('|').toLowerCase().indexOf(hint)>-1){ r=x; break; } }
+    if(!r){ dlog('weather: place not found ('+q+')'+(err?' '+err:'')); toast(err?'Couldn\u2019t reach the weather service':'Couldn\u2019t find '+q); if(inp) inp.value=S.wxPlace||''; return; }
+    S.wxLat=Math.round(r.latitude*1000)/1000; S.wxLon=Math.round(r.longitude*1000)/1000;
+    S.wxPlace=r.name+(r.admin1&&r.admin1!==r.name?', '+r.admin1:'')+(r.country_code&&r.country_code!=='US'?', '+r.country_code:'');
+    saveS(); if(inp) inp.value=S.wxPlace;
+    dlog('weather: place '+S.wxPlace+' ('+S.wxLat+', '+S.wxLon+')');
+    toast('Weather for '+S.wxPlace);
+    wxRefresh(true);
+  });
+}
+
+/* ---------- Home Assistant row ----------
+   Tiles come from http://<address>/local/lumen.json (Home Assistant's www folder, readable on the home
+   network without signing in). Each tile POSTs to http://<address>/api/webhook/<id>, which runs the
+   webhook automation with that id; webhooks need no token and are local-only by default.
+   On the TV both go through root curl: a direct request from the page would be blocked by CORS, and
+   for the POST that would mean sending it twice (the browser sends it, then hides the answer). */
+var HA=readJSON('lumen.ha.v1')||{}, HA_IDS=[], haBusy=false, haLast=0, haState='';
+function haAddr(v){
+  v=String(v||'').trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
+  if(!/^[A-Za-z0-9.\-]+(:\d{1,5})?$/.test(v)) return '';
+  return v.indexOf(':')<0?v+':8123':v;
+}
+function haBase(){ var a=haAddr(S.haAddr); return a?'http://'+a:''; }
+function haMerge(){
+  HA_IDS=[];
+  if(HA.addr!==haAddr(S.haAddr)) return;
+  (HA.tiles||[]).forEach(function(t){
+    var id='ha:'+t.webhook, c=HA_COLORS[t.icon]||HA_COLORS.scene;
+    var gl={movie:'film'}[t.icon]||t.icon;              /* the guide's icon names → Lumen's glyph names */
+    APPS[id]={id:id,title:t.name,glyph:G[gl]?gl:'scene',c1:c[0],c2:c[1],ha:{webhook:t.webhook},
+      category:HA.title||'Home Assistant',desc:t.description||'Press OK to run.'};
+    HA_IDS.push(id);
+  });
+}
+/* keeps only well-formed tiles; webhook ids become part of a URL and a shell command */
+function haTiles(j){
+  var out=[];
+  ((j&&j.tiles)||[]).forEach(function(t){
+    if(!t||typeof t.name!=='string'||!t.name.trim()||typeof t.webhook!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(t.webhook)) return;
+    if(out.length<30) out.push({name:t.name.trim().slice(0,40),webhook:t.webhook,icon:typeof t.icon==='string'?t.icon:'scene',description:typeof t.description==='string'?t.description.slice(0,160):''});
+  });
+  return out;
+}
+function haStatusText(){
+  if(!haAddr(S.haAddr)) return S.haAddr?'Address not valid':'Set the address';
+  if(haState==='loading') return 'Loading\u2026';
+  if(haState==='unreachable') return 'Can\u2019t reach Home Assistant';
+  if(haState==='nofile') return 'No www/lumen.json found';
+  if(haState==='bad') return 'lumen.json has a mistake';
+  var n=HA.addr===haAddr(S.haAddr)?(HA.tiles||[]).length:0;
+  return n?n+' tile'+(n===1?'':'s'):'No tiles yet';
+}
+function haRefreshRow(){
+  if(F.zone!=='settings'||F.sub) return;
+  if(F.page<0||OPTIONS[F.page].h==='Home Assistant') { var keep=F.sIdx; renderSettings(); F.sIdx=Math.min(keep,sFocusable.length-1); paintSettings(); }
+}
+function haFetch(url,cb){
+  if(ON_TV){
+    rootExec('curl -s --max-time 8 -w '+shq('\\n%{http_code}')+' '+shq(url)+' 2>/dev/null || echo 000',function(res,err){
+      var t=(res&&res.stdoutString)||'', k=t.lastIndexOf('\n'), code=+t.slice(k+1).trim()||0;
+      cb(code, k>-1?t.slice(0,k):'', err);
+    });
+    return;
+  }
+  try{ var x=new XMLHttpRequest(); x.open('GET',url,true); x.timeout=8000;
+    x.onload=function(){ cb(x.status,x.responseText); }; x.onerror=x.ontimeout=function(){ cb(0,''); }; x.send(); }catch(e){ cb(0,''); }
+}
+/* reload the tile list: at start, when Lumen comes back (at most once a minute), and from settings */
+function haLoad(manual){
+  var base=haBase();
+  if(!base){ if(manual) toast(S.haAddr?'That address doesn\u2019t look right':'Set Home Assistant\u2019s address first'); haState=''; haRefreshRow(); return; }
+  if(haBusy||(!manual&&Date.now()-haLast<60000)) return;
+  haBusy=true; haLast=Date.now(); if(manual){ haState='loading'; haRefreshRow(); }
+  haFetch(base+'/local/lumen.json?t='+Date.now(),function(code,body,err){
+    haBusy=false;
+    var j=null; if(code===200){ try{ j=JSON.parse(body); }catch(e){} }
+    haState=code===0?'unreachable':code===404?'nofile':code!==200?'unreachable':!j?'bad':'';
+    dlog('home assistant: lumen.json -> HTTP '+(code||'no answer')+(err?' ('+err+')':'')+(j?', '+haTiles(j).length+' tiles':''));
+    if(j){
+      var next={addr:haAddr(S.haAddr),title:typeof j.title==='string'?j.title.slice(0,40):'',tiles:haTiles(j)};
+      if(next.tiles.length===0&&(j.tiles||[]).length) haState='bad';
+      var changed=JSON.stringify(next)!==JSON.stringify(HA);
+      HA=next; writeJSON('lumen.ha.v1',HA);
+      if(changed){ haMerge(); render(); }
+    }
+    if(manual) toast(haState?haStatusText():(HA.tiles.length+' Home Assistant tile'+(HA.tiles.length===1?'':'s')+' loaded'));
+    haRefreshRow();
+  });
+}
+function haRun(a){
+  var base=haBase();
+  if(!base){ toast('Set Home Assistant\u2019s address in Lumen settings'); return; }
+  var url=base+'/api/webhook/'+a.ha.webhook;
+  dlog('home assistant: run '+a.title);
+  var done=function(code,err){
+    dlog('home assistant: '+a.title+' -> HTTP '+(code||'no answer')+(err?' ('+err+')':''));
+    toast(code>=200&&code<300?a.title+' \u2713':code===0?'Couldn\u2019t reach Home Assistant':'Home Assistant said no ('+code+')');
+  };
+  if(ON_TV){
+    rootExec('curl -s -o /dev/null --max-time 8 -w '+shq('%{http_code}')+' -X POST '+shq(url)+' 2>/dev/null || echo 000',function(res,err){
+      done(+String((res&&res.stdoutString)||'').trim()||0,err);
+    });
+    return;
+  }
+  if(!ON_DEVICE){ toast(a.title+' \u2014 preview only, no TV connected'); return; }
+  /* Android: no root; the request still reaches Home Assistant even when the browser hides the answer */
+  try{ var x=new XMLHttpRequest(); x.open('POST',url,true); x.timeout=8000;
+    x.onload=function(){ done(x.status); }; x.onerror=function(){ toast(a.title+' sent'); }; x.ontimeout=function(){ done(0); }; x.send(); }catch(e){ done(0); }
+}
+
+/* ---------- clock ---------- */
+var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var lastClock='';
+function tick(){
+  var d=new Date(), h=d.getHours(), m=d.getMinutes(), ap='';
+  if(S.clock==='12'){ ap=h<12?'AM':'PM'; h=h%12||12; }
+  var t=h+':'+(m<10?'0':'')+m+(ap?'<span class="ampm">'+ap+'</span>':'');
+  if(t!==lastClock){ lastClock=t; $('time').innerHTML=t; $('date').textContent=DAYS[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate(); }
+}
+setInterval(tick,15000);
+
+/* ---------- frame-rate meter ---------- */
+var fpsOn=false, fpsFrames=0, fpsT=0;
+function setFps(on){
+  $('fps').hidden=!on;
+  if(on&&!fpsOn){ fpsOn=true; fpsFrames=0; fpsT=now(); requestAnimationFrame(fpsLoop); }
+  if(!on) fpsOn=false;
+}
+function fpsLoop(){
+  if(!fpsOn) return;
+  fpsFrames++; var t=now();
+  if(t-fpsT>=1000){ $('fps').textContent=Math.round(fpsFrames*1000/(t-fpsT))+' fps'; fpsFrames=0; fpsT=t; }
+  requestAnimationFrame(fpsLoop);
+}
+
+/* ---------- hints / banner ---------- */
+var ON_TV=typeof window.PalmServiceBridge!=='undefined';
+var ON_ANDROID=!!window.LumenAndroid;           /* Android TV build: native bridge supplies apps, icons and launching */
+var ON_DEVICE=ON_TV||ON_ANDROID;
+function renderHints(){
+  $('hints').innerHTML=(ON_DEVICE?'':'<span class="k">Arrows</span><span class="h">Move</span>')+
+    '<span class="k">OK</span><span class="h">Open</span>'+
+    '<span class="k">Hold OK</span><span class="h">App options</span>'+
+    '<span class="k">&#9650;</span><span class="h">Settings</span>';
+}
+var bannerT=null;
+function banner(msg,ms){
+  var b=$('banner'); clearTimeout(bannerT);
+  if(!msg){ b.hidden=true; stage.classList.remove('has-banner'); return; }
+  b.textContent=msg; b.hidden=false; stage.classList.add('has-banner');
+  if(ms) bannerT=setTimeout(function(){ banner(null); },ms);
+}
+
+/* ---------- debug console (0 or blue button) ---------- */
+var LOG=[];
+function dlog(){
+  var parts=Array.prototype.slice.call(arguments).map(function(a){ if(typeof a==='object'){ try{ var s=JSON.stringify(a); return s.length>300?s.slice(0,300)+'…':s; }catch(e){ return String(a); } } return String(a); });
+  var d=new Date(), line=(d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes()+':'+(d.getSeconds()<10?'0':'')+d.getSeconds()+'  '+parts.join(' ');
+  LOG.push(line); if(LOG.length>400) LOG.shift();
+  var el=$('debug'); if(el&&!el.hidden){ el.lastChild.textContent=LOG.join('\n'); el.scrollTop=el.scrollHeight; }
+  if(window.console&&console.log) console.log(line);
+}
+function toggleDebug(){ var el=$('debug'); el.hidden=!el.hidden; if(!el.hidden){ el.lastChild.textContent=LOG.join('\n'); el.scrollTop=el.scrollHeight; } }
+
+/* ---------- webOS system calls ---------- */
+var bridges=[];
+function luna(uri,params,cb){
+  if(!ON_TV) return false;
+  try{
+    var b=new window.PalmServiceBridge();
+    b.onservicecallback=function(msg){ var r=null; try{ r=JSON.parse(msg); }catch(e){ r={returnValue:false,errorText:'Bad reply'}; } if(cb) cb(r); };
+    b.call(uri,JSON.stringify(params||{}));
+    bridges.push(b); if(bridges.length>60) bridges.shift();
+    return true;
+  }catch(e){ if(cb) cb({returnValue:false,errorText:String(e&&e.message||e)}); return true; }
+}
+/* runs a shell command as root through the Homebrew Channel service; cb(result, error) */
+function rootExec(cmd,cb){
+  return luna('luna://org.webosbrew.hbchannel.service/exec',{command:cmd},function(r){
+    if(!r||r.returnValue===false||r.error) cb(null,(r&&(r.errorText||r.error))||'no reply');
+    else cb(r,null);
+  });
+}
+function shq(s){ return "'"+String(s).replace(/'/g,"'\\''")+"'"; }
+/* call a Luna method: directly first, then as root through the Homebrew Channel if webOS refuses */
+function lunaQuery(uri,params,ok,cb){
+  var name=uri.split('/').pop();
+  luna(uri,params||{},function(r){
+    if(r&&r.returnValue!==false&&ok(r)){ dlog(name+': direct call OK'); return cb(r,null); }
+    var e1=(r&&r.errorText)||'refused';
+    dlog(name+': direct call failed ('+e1+'), trying root');
+    rootExec('luna-send -n 1 -w 8000 '+shq(uri)+' '+shq(JSON.stringify(params||{})),function(res,err){
+      if(err){ dlog(name+': root failed ('+err+')'); return cb(null,'direct: '+e1+'; root: '+err); }
+      var out=res.stdoutString||'', j=null;
+      try{ j=JSON.parse(out.slice(out.indexOf('{'))); }catch(e){}
+      if(j&&j.returnValue!==false&&ok(j)){ dlog(name+': root call OK'); return cb(j,null); }
+      var e2=(j&&j.errorText)||'unreadable reply';
+      dlog(name+': root call returned an error ('+e2+')', out.slice(0,200));
+      cb(null,'direct: '+e1+'; root: '+e2);
+    });
+  });
+}
+function safeId(id){ return /^[A-Za-z0-9._-]+$/.test(id)?id:null; }
+function fileUrl(p,folder){
+  if(!p) return '';
+  if(/^[a-z]+:/i.test(p)) return p;
+  if(p.charAt(0)!=='/'&&folder) p=folder.replace(/\/$/,'')+'/'+p;
+  return 'file://'+(p.charAt(0)==='/'?'':'/')+p;
+}
+function plainPath(u){ return String(u||'').replace(/^file:\/\//,''); }
+
+/* apps that are never shown: this launcher, old copies, and the launcher it replaces */
+var EXCLUDE={'org.webosbrew.lumen':1,'com.lumen.launcher':1,'org.lumen.launcher':1};
+var DEFAULT_HIDDEN=['works.partridge.webos-launcher','com.spocky.projengmenu'];
+var INPUT_RE=/^com\.webos\.app\.(hdmi\d|externalinput\..*|livetv\.hdmi.*)$/;
+
+function mapLaunchPoint(p){
+  var id=p.id||p.appId;
+  return {id:id,title:p.title||id,
+    icon:fileUrl(p.largeIcon||p.mediumLargeIcon||p.icon,p.folderPath),
+    icon2:fileUrl(p.icon,p.folderPath),
+    splash:fileUrl(p.bgImage||p.splashBackground,p.folderPath),
+    color:(p.iconColor&&/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(p.iconColor))?p.iconColor:((p.bgColor&&/^#[0-9a-f]{6}$/i.test(p.bgColor))?p.bgColor:hashColor(id)),
+    params:p.params||null, system:!!(p.systemApp||p.removable===false), version:p.version};
+}
+function appListFrom(r){
+  var src=r.launchPoints||r.apps||[];
+  var seen={}, list=[];
+  src.forEach(function(p){
+    var id=p&&(p.id||p.appId);
+    if(!id||seen[id]||EXCLUDE[id]||p.visible===false||p.noWindow) return;
+    if(INPUT_RE.test(id)) return;             /* inputs come from the input list instead */
+    seen[id]=1; list.push(mapLaunchPoint(p));
+  });
+  list.sort(function(x,y){ return x.title.localeCompare(y.title); });
+  return list;
+}
+/* HDMI inputs from the TV's external-input manager; connected ports only */
+function inputListFrom(r){
+  var out=[];
+  (r.devices||r.inputs||[]).forEach(function(d){
+    var port=String(d.id||d.port||'');
+    var m=/hdmi[_ ]?(\d)/i.exec(port)||/hdmi(\d)/i.exec(d.appId||'');
+    if(!m) return;                            /* HDMI only */
+    var n=m[1], appId=(d.appId&&/^com\.webos\.app\./.test(d.appId))?d.appId:'com.webos.app.hdmi'+n;
+    var connected=(d.connected===true||d.connected==='true'||d.connectedStatus===true);
+    if(d.connected===undefined&&d.connectedStatus===undefined) connected=true;   /* firmware doesn't say: show it */
+    if(!connected) return;
+    var label=d.userName||d.label||d.deviceName||('HDMI '+n);
+    if(label.replace(/\s/g,'').toUpperCase()==='HDMI'+n) label='HDMI '+n;     /* LG's default names: "HDMI2" -> "HDMI 2" */
+    out.push({id:appId,title:label,input:true,port:'HDMI '+n,
+      icon:d.icon?fileUrl(d.icon):'', color:'#4a5568', category:'Input',
+      desc:'HDMI '+n+(label.replace(/\s/g,'').toUpperCase()!=='HDMI'+n?'':'')+'  ·  Connected'});
+  });
+  out.sort(function(x,y){ return x.port.localeCompare(y.port); });
+  return out;
+}
+
+/* ---------- icon resolution ----------
+   1) load the icon file the TV reports  2) the smaller icon  3) read the file as root through the Homebrew Channel.
+   Until one works the card shows the app's initials. */
+var ICONS={}, ICON_TRY={}, SPLASH_OK={};
+var ICON_STORE=readJSON('lumen.icons.v1')||{};
+function probe(src,ok,fail){ var im=new Image(); im.onload=function(){ if(im.naturalWidth>0) ok(im); else fail(); }; im.onerror=fail; im.src=src; }
+var rootQueue=[], rootBusy=0;
+function rootIcon(id,path,cb){
+  rootQueue.push([id,path,cb]); pumpRoot();
+}
+function pumpRoot(){
+  while(rootBusy<3&&rootQueue.length){
+    (function(job){
+      rootBusy++;
+      var p=plainPath(job[1]);
+      if(!/^[A-Za-z0-9_\/.+@-]+$/.test(p)){ rootBusy--; job[2](null); pumpRoot(); return; }
+      rootExec('cat '+shq(p),function(res,err){
+        rootBusy--;
+        var b64=res&&res.stdoutBytes;
+        if(!b64){ dlog('icon: root read failed for',job[0],p,err||'empty file'); job[2](null); }
+        else {
+          var ext=(p.split('.').pop()||'').toLowerCase();
+          var mime=ext==='jpg'||ext==='jpeg'?'image/jpeg':ext==='svg'?'image/svg+xml':ext==='webp'?'image/webp':'image/png';
+          job[2]('data:'+mime+';base64,'+b64);
+        }
+        pumpRoot();
+      });
+    })(rootQueue.shift());
+  }
+}
+function storeIcon(id,uri){
+  ICON_STORE[id]=uri;
+  var total=0; for(var k in ICON_STORE) total+=ICON_STORE[k].length;
+  if(total<3500000) writeJSON('lumen.icons.v1',ICON_STORE);
+}
+function resolveIcons(){
+  Object.keys(APPS).forEach(function(id){
+    var a=APPS[id];
+    if(a.demo||a.input||a.ha) return;
+    var sig=(a.icon||'')+'|'+(a.splash||'');
+    if(ICON_TRY[id]===sig) return; ICON_TRY[id]=sig;
+    if(ICON_STORE[id]&&ICON_STORE[id].sig===undefined&&false){}
+    var cands=[]; if(a.icon) cands.push(a.icon); if(a.icon2&&a.icon2!==a.icon) cands.push(a.icon2);
+    var i=0;
+    var next=function(){
+      if(i<cands.length){ var s=cands[i++]; probe(s,function(im){ applyIcon(id,s,im); },next); return; }
+      if(ICON_STORE[id]){ probe(ICON_STORE[id],function(im){ applyIcon(id,ICON_STORE[id],im,true); dlog('icon: using saved copy for',id); },function(){ delete ICON_STORE[id]; }); return; }
+      if(!cands.length){ if(!a.input) dlog('icon: TV reports no icon for',id); return; }
+      dlog('icon: file blocked for',id,'- reading it as root');
+      rootIcon(id,cands[0],function(uri){
+        if(!uri) return;
+        probe(uri,function(im){ storeIcon(id,uri); applyIcon(id,uri,im,true); },function(){ dlog('icon: root copy is not an image for',id); });
+      });
+    };
+    next();
+    if(a.splash&&S.splash) probe(a.splash,function(){ SPLASH_OK[id]=true; applySplash(id); },function(){ dlog('artwork: not loadable for',id); });
+  });
+}
+function cardArts(id){ return $('rows').querySelectorAll('.art[data-id="'+id+'"]'); }
+/* Reads an icon's colours: the colour around its edge, and its main logo colour.
+   'seam'  = solid square background -> the card takes that colour so the square disappears
+   'tile'  = busy/photographic edge  -> shown as a rounded tile
+   'clear' = transparent icon        -> floats on a gradient of its own colour
+   Throws if webOS won't let the page read the image's pixels. */
+var COLORS=readJSON('lumen.colors.v1')||{};
+function analyzeIcon(img){
+  var N=40, c=document.createElement('canvas'); c.width=c.height=N;
+  var x=c.getContext('2d'); x.drawImage(img,0,0,N,N);
+  var d=x.getImageData(0,0,N,N).data, eN=0, aSum=0, border=[], i, y, k;
+  for(y=0;y<N;y++) for(i=0;i<N;i++){
+    if(!(i<3||y<3||i>=N-3||y>=N-3)) continue;
+    if((i<12||i>=N-12)&&(y<12||y>=N-12)) continue;        /* skip rounded corners */
+    k=(y*N+i)*4; eN++; aSum+=d[k+3];
+    if(d[k+3]>200) border.push([d[k],d[k+1],d[k+2]]);
+  }
+  var edge=null, mode='clear';
+  if(aSum/eN/255>.85&&border.length>eN*.8){
+    edge=[0,0,0]; border.forEach(function(p){ edge[0]+=p[0]; edge[1]+=p[1]; edge[2]+=p[2]; });
+    edge=edge.map(function(v){ return Math.round(v/border.length); });
+    var dev=0; border.forEach(function(p){ dev+=Math.abs(p[0]-edge[0])+Math.abs(p[1]-edge[1])+Math.abs(p[2]-edge[2]); });
+    mode=dev/border.length<24?'seam':'tile';
+  }
+  var ws=0, ac=[0,0,0];
+  for(y=3;y<N-3;y++) for(i=3;i<N-3;i++){
+    k=(y*N+i)*4; if(d[k+3]<160) continue;
+    var px=[d[k],d[k+1],d[k+2]], mx=Math.max(px[0],px[1],px[2]), s=satOf(px);
+    var dist=edge?(Math.abs(px[0]-edge[0])+Math.abs(px[1]-edge[1])+Math.abs(px[2]-edge[2]))/765:1;
+    var w=(s*s+.02)*(dist+.05)*(mx/255+.2);
+    ws+=w; ac[0]+=px[0]*w; ac[1]+=px[1]*w; ac[2]+=px[2]*w;
+  }
+  var accent=ws?ac.map(function(v){ return Math.round(v/ws); }):(edge||[90,100,120]);
+  return {mode:mode,edge:edge||mixA(accent,[8,10,14],.6),accent:accent};
+}
+function iconMode(id){ var p=COLORS[id]; return p?p.mode:'clear'; }
+function applyIcon(id,src,img,fromRoot){
+  var a=APPS[id]; if(!a) return;
+  var sig=a.icon||'';
+  var p=COLORS[id];
+  if(img&&!(p&&p.sig===sig)){
+    try{ p=analyzeIcon(img); p.sig=sig; COLORS[id]=p; writeJSON('lumen.colors.v1',COLORS); }
+    catch(e){
+      if(!fromRoot&&!/^data:/.test(src)){
+        dlog('icon: colours unreadable for',id,'- reading the file as root');
+        rootIcon(id,src,function(uri){ if(uri) probe(uri,function(im){ storeIcon(id,uri); applyIcon(id,uri,im,true); },function(){}); });
+      }
+    }
+  }
+  ICONS[id]=src;
+  paintCards(id);
+  if(heroId===id&&S.wallpaper==='focus'){ bdKey=null; paintBackdrop(a); }
+}
+function paintCards(id){
+  var a=APPS[id], src=ICONS[id], mode=src?iconMode(id):'';
+  Array.prototype.forEach.call(cardArts(id),function(el){
+    if(el.classList.contains('nm')) return;
+    var spl=el.classList.contains('splash');
+    if(src&&!spl) el.innerHTML='<img src="'+esc(src)+'" alt="">';
+    el.className='art '+mode+(spl?' splash':'');
+    el.parentNode.style.background=faceBg(a);
+  });
+}
+function applySplash(id){
+  if(!S.splash||S.cardStyle==='icon') return;
+  var a=APPS[id]; if(!a||(a.banner&&S.cardStyle!=='landscape')) return;
+  Array.prototype.forEach.call(cardArts(id),function(el){ el.style.backgroundImage='url("'+a.splash+'")'; el.classList.add('splash'); });
+  if(heroId===id&&S.wallpaper==='focus'){ bdKey=null; paintBackdrop(a); }
+}
+
+/* ---------- loading apps + inputs ---------- */
+var loading=false, appSig='';
+function loadAndroidApps(manual){
+  var list=null, err='';
+  try{ list=JSON.parse(window.LumenAndroid.listApps()); }catch(e){ err=String(e&&e.message||e); }
+  if(!list||!list.length){
+    dlog('apps: Android app list failed',err||'empty');
+    if(SOURCE!=='tv'){ setApps(demoApps(),'demo'); render(); banner('Couldn\u2019t read your installed apps ('+(err||'empty list')+'). Showing sample apps.'); }
+    return;
+  }
+  list=list.filter(function(a){ return a&&a.id&&!EXCLUDE[a.id]; });
+  list.sort(function(x,y){ return x.title.localeCompare(y.title); });
+  var sig=JSON.stringify(list);
+  writeJSON(AKEY,list); banner(null);
+  if(sig!==appSig||SOURCE!=='tv'){ appSig=sig; setApps(list,'tv'); render(); }
+  resolveIcons();
+  dlog('apps: '+list.length+' from Android');
+  if(manual) toast(list.length+' apps loaded');
+}
+function loadTvApps(manual){
+  if(!ON_DEVICE||loading) return;
+  if(ON_ANDROID) return loadAndroidApps(manual);
+  loading=true;
+  var pending=2, apps=null, inputs=null, errs=[];
+  var done=function(){
+    if(--pending>0) return;
+    loading=false;
+    if(!apps&&SOURCE==='tv'){                                   /* keep what we had */
+      apps=ALL.map(function(id){ return APPS[id]; });
+    }
+    if(!inputs&&SOURCE==='tv') inputs=INPUTS.map(function(id){ return APPS[id]; });
+    if(apps&&apps.length){
+      var list=apps.concat(inputs||[]);
+      var sig=JSON.stringify(list);
+      writeJSON(AKEY,list);
+      if(!errs.length||apps) banner(null);
+      if(sig!==appSig||SOURCE!=='tv'){ appSig=sig; setApps(list,'tv'); render(); }
+      resolveIcons();
+      if(manual) toast(apps.length+' apps'+(inputs?', '+inputs.length+' connected inputs':'')+' loaded');
+      return;
+    }
+    if(SOURCE==='tv'){ if(manual) toast('Couldn’t reload apps. Press 0 for details.'); return; }
+    setApps(demoApps(),'demo'); render();
+    banner('Couldn’t read your installed apps ('+errs.join(' | ')+'). Showing sample apps. Press 0 for the debug log.');
+  };
+  /* apps: launch points first (what LG's home bar shows), full app list as a fallback */
+  lunaQuery('luna://com.webos.applicationManager/listLaunchPoints',{},function(r){ return !!r.launchPoints; },function(r,err){
+    if(r){ apps=appListFrom(r); dlog('apps: '+apps.length+' from launch points'); return done(); }
+    errs.push('launch points: '+err);
+    lunaQuery('luna://com.webos.applicationManager/listApps',{},function(r){ return !!r.apps; },function(r2,err2){
+      if(r2){ apps=appListFrom(r2); dlog('apps: '+apps.length+' from app list'); }
+      else errs.push('app list: '+err2);
+      done();
+    });
+  });
+  /* inputs */
+  lunaQuery('luna://com.webos.service.eim/getAllInputStatus',{},function(r){ return !!(r.devices||r.inputs); },function(r,err){
+    if(r){ inputs=inputListFrom(r); dlog('inputs: '+inputs.length+' connected HDMI', (r.devices||r.inputs||[]).map(function(d){ return (d.id||d.port)+'='+(d.connected!==undefined?d.connected:'?'); }).join(', ')); }
+    else dlog('inputs: could not read input list ('+err+')');
+    done();
+  });
+}
+
+/* ---------- launching ---------- */
+var toastT=null;
+function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove('on');},2800); }
+function stageRect(el){ var sr=stage.getBoundingClientRect(), r=el.getBoundingClientRect(); return {l:(r.left-sr.left)/SCALE,t:(r.top-sr.top)/SCALE,w:r.width/SCALE,h:r.height/SCALE}; }
+function hideZoom(){ var z=$('zoom'); z.classList.remove('go'); z.style.opacity='0'; }
+function launch(id){
+  var a=APPS[id]; if(!a) return;
+  if(a.ha){ haRun(a); return; }                  /* runs in the background: no zoom, Lumen stays in front */
+  var face=focusedCard&&focusedCard.querySelector('.face'), z=$('zoom');
+  if(face&&S.speed!=='off'&&S.quality!=='lite'){
+    var r=stageRect(face);
+    z.classList.remove('go');
+    z.style.background=faceBg(a);
+    z.innerHTML='<div class="art '+(ICONS[a.id]?iconMode(a.id):'')+'">'+artHtml(a)+'</div>';
+    z.style.transform='translate3d('+r.l+'px,'+r.t+'px,0) scale('+(r.w/1920)+','+(r.h/1080)+')';
+    z.style.opacity='1';
+    void z.offsetWidth;
+    z.classList.add('go');
+    z.style.transform='none';
+    setTimeout(hideZoom, ON_DEVICE?1500:900);
+  }
+  setTimeout(function(){
+    if(a.demo){ toast('Opening '+a.title+' — preview only, no TV connected'); return; }
+    if(ON_ANDROID){
+      dlog('launch',id);
+      var ok=false; try{ ok=window.LumenAndroid.launch(id); }catch(e){ dlog('launch failed',e&&e.message); }
+      if(!ok){ hideZoom(); toast('Couldn\u2019t open '+a.title); }
+      return;
+    }
+    var params={id:id}; if(a.params) params.params=a.params;
+    dlog('launch',id);
+    luna('luna://com.webos.applicationManager/launch',params,function(res){
+      if(res&&res.returnValue===false){
+        dlog('launch refused ('+res.errorText+'), trying root');
+        if(!safeId(id)){ hideZoom(); toast('Couldn’t open '+a.title); return; }
+        rootExec('luna-send -n 1 '+shq('luna://com.webos.applicationManager/launch')+' '+shq(JSON.stringify(params)),function(out,err){
+          if(err){ hideZoom(); dlog('launch failed',err); toast('Couldn’t open '+a.title+': '+((res&&res.errorText)||err)); }
+        });
+      }
+    });
+  },300);
+}
+
+/* a Luna call that falls back to root; cb(ok, error text). Root replies are read from luna-send's output. */
+function lunaDo(uri,params,cb){
+  luna(uri,params,function(res){
+    if(res&&res.returnValue!==false) return cb(true,null);
+    var e1=(res&&res.errorText)||'refused';
+    dlog(uri.split('/').pop()+' refused ('+e1+'), trying root');
+    rootExec('luna-send -n 1 -w 5000 '+shq(uri)+' '+shq(JSON.stringify(params||{})),function(out,err){
+      if(err) return cb(false,e1+'; root: '+err);
+      var t=out.stdoutString||'';
+      if(/"returnValue"\s*:\s*false/.test(t)){ var m=/"errorText"\s*:\s*"([^"]*)"/.exec(t); return cb(false,e1+'; root: '+(m?m[1]:'refused')); }
+      cb(true,null);
+    });
+  });
+}
+function openTvSettings(){
+  if(ON_ANDROID){ dlog('launch system settings'); try{ if(window.LumenAndroid.launch('lumen.system.settings')) return; }catch(e){} toast('Couldn\u2019t open Android settings'); return; }
+  if(!ON_TV){ toast('Opening TV settings — preview only, no TV connected'); return; }
+  dlog('tv settings: opening '+LG_SETTINGS);
+  lunaDo('luna://com.webos.applicationManager/launch',{id:LG_SETTINGS},function(ok,err){
+    if(!ok){ dlog('tv settings: failed ('+err+')'); toast('Couldn\u2019t open TV settings. Press 0 for details.'); }
+  });
+}
+
+/* ---------- context menu ---------- */
+var menuItems=[];
+function openMenu(){
+  if(!rows.length) return;
+  var r=rows[F.row], id=r.ids[col()], a=APPS[id], fav=(S.favorites||[]).indexOf(id)>-1;
+  menuItems=[{label:'Open',act:function(){ closeMenu(); launch(id); }}];
+  menuItems.push(fav?{label:'Remove from Favorites',act:function(){ S.favorites=S.favorites.filter(function(x){return x!==id;}); saveS(); closeMenu(); render(); toast(a.title+' removed from Favorites'); }}
+                   :{label:'Add to Favorites',act:function(){ S.favorites.push(id); saveS(); closeMenu(); render(); toast(a.title+' added to Favorites'); }});
+  if(r.key==='fav'||!a.input) menuItems.push({label:'Move',act:function(){ closeMenu(); F.moving={key:r.key,id:id}; applyFocus(); }});
+  if(!a.input) menuItems.push({label:'Hide',act:function(){ S.hidden=(S.hidden||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' hidden. Show it again in Settings.'); }});
+  menuItems.push({label:'Cancel',act:function(){ closeMenu(); applyFocus(); }});
+  var m=$('menu');
+  m.innerHTML='<div class="mh">'+esc(a.title)+'</div>'+menuItems.map(function(it,i){return '<div class="mi" data-i="'+i+'">'+it.label+'</div>';}).join('');
+  Array.prototype.forEach.call(m.querySelectorAll('.mi'),function(el){
+    el.addEventListener('mouseenter',function(){ F.mIdx=+el.getAttribute('data-i'); paintMenu(); });
+    el.addEventListener('click',function(e){ e.stopPropagation(); menuItems[+el.getAttribute('data-i')].act(); });
+  });
+  F.mIdx=0; F.zone='menu'; paintMenu();
+  var fr=stageRect(focusedCard.querySelector('.face'));
+  m.style.left=Math.min(fr.l,1920-470)+'px';
+  var mh=m.offsetHeight, top=fr.t-mh-28;
+  if(top<40) top=fr.t+fr.h+28;
+  m.style.top=top+'px';
+  m.classList.add('open');
+}
+function paintMenu(){ Array.prototype.forEach.call($('menu').querySelectorAll('.mi'),function(el,i){ el.classList.toggle('focus',i===F.mIdx); }); }
+function closeMenu(){ $('menu').classList.remove('open'); if(F.zone==='menu') F.zone='rows'; }
+
+/* ---------- move mode ---------- */
+function moveBy(dir){
+  var r=rows[F.row], c=col(), n=c+dir; if(n<0||n>=r.ids.length) return;
+  var id=r.ids[c], other=r.ids[n], list;
+  if(r.key==='fav'){ list=S.favorites=r.ids.slice(); }
+  else { S.order=S.order||{}; list=S.order[SOURCE]=orderedAll(); }
+  var i=list.indexOf(id), j=list.indexOf(other); list[i]=other; list[j]=id;
+  F.cols[r.key]=n; saveS(); render();
+}
+function endMove(){ F.moving=null; applyFocus(); toast('Order saved'); }
+
+/* ---------- settings panel ---------- */
+var sFocusable=[], resetArmed=false, resetT=null, sItems=[];
+function optValue(o){
+  var v=S[o.key];
+  if(o.key==='_hidden'){ var n=(S.hidden||[]).length; return n?n+' hidden — OK to show all':'None'; }
+  if(o.key==='_refresh') return ON_DEVICE?'OK to reload':'TV only';
+  if(o.key==='_favs') return (S.favorites||[]).filter(function(id){return APPS[id];}).length+' chosen<span class="chev" style="opacity:.55">&#8250;</span>';
+  if(o.key==='_debug') return ON_ANDROID?'':'Also: 0 or blue button';
+  if(o.key==='_home') return 'Opens Android\u2019s chooser';
+  if(o.key==='_reset') return resetArmed?'Press OK again to confirm':'';
+  if(o.key==='_nextwp') return 'OK, or the green button';
+  if(o.key==='_haReload') return esc(haStatusText());
+  if(o.text) return '<input class="tx" id="in-'+o.key+'" type="text" value="'+esc(v||'')+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' spellcheck="false" autocomplete="off" tabindex="-1">';
+  if(o.bool) return '<span class="tog'+(v?' on':'')+'"></span>';
+  if(o.swatch){
+    var n=o.swatch.length, at=0; for(var q=0;q<n;q++) if(o.swatch[q][0]===v) at=q;
+    var dot=function(k,sel){ var w=o.swatch[(k+n)%n]; return '<span class="sw'+(sel?' sel':'')+(w[0]==='auto'?' auto':'')+'" style="background:'+(w[0]==='auto'?'#fff':w[0])+';color:'+(w[0]==='auto'?'#fff':w[0])+'"></span>'; };
+    return '<span class="chev">&#8249;</span><span class="swc">'+dot(at-1)+dot(at,1)+dot(at+1)+'</span><span class="swn">'+esc(o.swatch[at][1])+'</span><span class="chev">&#8250;</span>';
+  }
+  if(o.range) return '<span class="chev">&#8249;</span>'+o.fmt(v)+'<span class="chev">&#8250;</span>';
+  for(var i=0;i<o.values.length;i++) if(o.values[i][0]===v) return '<span class="chev">&#8249;</span>'+o.values[i][1]+'<span class="chev">&#8250;</span>';
+  return '';
+}
+function setHead(t,sub){ $('s-head').innerHTML='<h2>'+esc(t)+'</h2><p>'+esc(sub)+'</p>'; }
+function renderSettings(){
+  var L=$('s-list'), html=''; sFocusable=[];
+  if(F.page<0){
+    setHead('Lumen settings','Changes apply as you go. Back to close.');
+    OPTIONS.forEach(function(o,i){
+      if(!o.h||(o.when&&!o.when())) return;
+      sFocusable.push(i);
+      html+='<div class="si pg"><span>'+esc(o.h)+'</span><span class="v">'+esc(o.sum())+'<span class="chev">&#8250;</span></span></div>';
+    });
+  } else {
+    setHead(OPTIONS[F.page].h,'Back to all settings.');
+    for(var i=F.page+1;i<OPTIONS.length&&!OPTIONS[i].h;i++){
+      var o=OPTIONS[i]; if(o.when&&!o.when()) continue;
+      sFocusable.push(i);
+      html+='<div class="si" data-o="'+i+'"><span>'+o.label+'</span><span class="v">'+optValue(o)+'</span></div>';
+    }
+  }
+  L.innerHTML=html;
+  sItems=L.querySelectorAll('.si');
+  Array.prototype.forEach.call(sItems,function(el,k){
+    el.addEventListener('mouseenter',function(){ F.sIdx=k; paintSettings(); });
+    el.addEventListener('click',function(){ F.sIdx=k; paintSettings(); changeOpt(1,true); });
+  });
+  F.sLast=-1; paintSettings();
+}
+function paintSettings(){
+  if(F.sLast>=0&&sItems[F.sLast]) sItems[F.sLast].classList.remove('focus');
+  var el=sItems[F.sIdx], L=$('s-list');
+  if(el){ el.classList.add('focus'); L.scrollTop=Math.max(0,el.offsetTop-L.clientHeight/2+38); }
+  F.sLast=F.sIdx;
+}
+function refreshOpt(){ var el=sItems[F.sIdx], o=OPTIONS[sFocusable[F.sIdx]]; if(el) el.querySelector('.v').innerHTML=optValue(o); }
+var RERENDER={cardStyle:1,cardSize:1,bigFav:1,splash:1,scroll:1,hero:1,rowTitles:1,haRow:1};
+function openPage(i){ F.page=i; F.lastPage=i; F.sIdx=0; renderSettings(); }
+function closePage(){ var p=F.page; F.page=-1; renderSettings(); F.sIdx=Math.max(0,sFocusable.indexOf(p)); paintSettings(); }
+function changeOpt(dir,isOk){
+  var o=OPTIONS[sFocusable[F.sIdx]];
+  if(!o) return;
+  if(o.h){ if(isOk||dir>0) openPage(sFocusable[F.sIdx]); return; }
+  if(o.action){
+    if(!isOk) return;
+    if(o.key==='_favs'){ openFavPicker(); return; }
+    if(o.key==='_nextwp'){ toast('Loading the next wallpaper…'); wpNext(true); return; }
+    if(o.key==='_debug'){ toggleDebug(); return; }
+    if(o.key==='_haReload'){ haLoad(true); return; }
+    if(o.key==='_home'){ try{ window.LumenAndroid.chooseHomeApp(); }catch(e){} return; }
+    if(o.key==='_refresh'){ if(ON_DEVICE){ toast('Reloading apps…'); loadTvApps(true); } }
+    if(o.key==='_hidden'){ if((S.hidden||[]).length){ S.hidden=[]; saveS(); render(); toast('All apps are visible again'); } }
+    if(o.key==='_reset'){
+      if(!resetArmed){ resetArmed=true; clearTimeout(resetT); resetT=setTimeout(function(){resetArmed=false; refreshOpt();},3500); }
+      else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); toast('Settings reset'); return; }
+    }
+    refreshOpt(); return;
+  }
+  if(o.text){ if(isOk) startEdit(o.key); return; }
+  var v=S[o.key];
+  if(o.bool){ S[o.key]=!v; }
+  else if(o.range){ var lo=o.range[0],hi=o.range[1],st=o.range[2]; var nv=v+dir*st; if(isOk&&nv>hi) nv=lo; S[o.key]=Math.max(lo,Math.min(hi,nv)); }
+  else { var arr=o.swatch||o.values, idx=0; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) idx=i; S[o.key]=arr[(idx+dir+arr.length)%arr.length][0]; }
+  saveS(); applySettings();
+  if(RERENDER[o.key]) render(); else applyFocus(true);
+  if(o.key==='wallpaper'||o.key==='wpRes'||o.key==='wpBlur'){ if(o.key==='wallpaper') WP.on&&!isPhotoMode()&&wpOff(); bdKey=null; wpApply(true); }
+  else if(o.key==='wpCredit'||o.key==='dim'||o.key==='wpZoom'){ wpApply(false); if(o.key==='wpZoom'){ var cur=$(WP.flip?'phA':'phB'); cur.classList.toggle('kb',!!S.wpZoom&&S.quality!=='lite'); } }
+  paintBackdrop(heroId?APPS[heroId]:null);
+  if(o.key==='weather'||o.key==='wxUnits') wxRefresh(true);
+  if(o.key==='wallpaper'||o.key==='weather'){ var keep=o.key; renderSettings(); for(var q=0;q<sFocusable.length;q++) if(OPTIONS[sFocusable[q]].key===keep){ F.sIdx=q; break; } paintSettings(); return; }
+  refreshOpt();
+}
+/* text settings: focusing the field brings up the TV's on-screen keyboard; OK/Enter saves, Back cancels */
+function startEdit(key){
+  var inp=$('in-'+key); if(!inp) return;
+  F.editing=key; F.editOld=S[key];
+  inp.parentNode.parentNode.classList.add('editing');
+  inp.removeAttribute('tabindex'); inp.focus();
+  try{ inp.setSelectionRange(0,inp.value.length); }catch(e){}
+}
+function endEdit(save){
+  var key=F.editing; if(!key) return;
+  var inp=$('in-'+key); F.editing=null;
+  if(inp){
+    inp.parentNode.parentNode.classList.remove('editing'); inp.blur(); inp.setAttribute('tabindex','-1');
+    var val=String(inp.value||'').trim();
+    if(key==='wpSub') val=val.replace(/^\/?r\//i,'').replace(/\s+/g,'');
+    if(key==='haAddr'){ if(save){ S.haAddr=haAddr(val); saveS(); inp.value=S.haAddr; haLoad(true); } else inp.value=F.editOld||''; return; }
+    if(key==='wxPlace'){ if(save&&val) wxSetPlace(val,inp); else inp.value=F.editOld||''; return; }
+    if(save&&val&&val!==F.editOld){ S[key]=val; saveS(); inp.value=val; bdKey=null; wpApply(true); toast('Loading wallpapers for '+(key==='wpSub'?'r/':'')+val); }
+    else inp.value=F.editOld||'';
+  }
+}
+function openSettings(){ $('top').style.opacity='0'; F.prevZone=F.zone==='top'?'top':'rows'; F.zone='settings'; F.page=-1; renderSettings(); F.sIdx=Math.max(0,sFocusable.indexOf(F.lastPage)); paintSettings(); $('settings').classList.add('open'); $('scrim').classList.add('on'); applyFocus(); }
+function closeSettings(){ if(F.sub) closeFavPicker(); $('top').style.opacity=''; $('settings').classList.remove('open'); $('scrim').classList.remove('on'); F.zone=F.prevZone||'rows'; applyFocus(); }
+
+
+/* ---------- choose favorites ---------- */
+var pkIds=[], pkReturn=0;
+function openFavPicker(){
+  pkReturn=F.sIdx; F.sub='fav';
+  var favs=(S.favorites||[]).filter(function(id){ return APPS[id]&&!isHidden(id); });
+  var rest=INPUTS.concat(orderedAll()).filter(function(id){ return favs.indexOf(id)<0&&!isHidden(id); });
+  pkIds=favs.concat(rest);
+  $('s-head').innerHTML='<h2>Choose favorites</h2><p>OK adds or removes. Numbers are the order on the home screen.</p>';
+  var html='';
+  pkIds.forEach(function(id){
+    var a=APPS[id];
+    html+='<div class="si"><span class="pk"><span class="nm">'+esc(a.title)+'</span>'+(a.input?'<span class="sub">Input</span>':'')+'</span><span class="pk-n"></span></div>';
+  });
+  if(!pkIds.length) html='<div class="sh">No apps loaded yet</div>';
+  $('s-list').innerHTML=html;
+  sItems=$('s-list').querySelectorAll('.si');
+  Array.prototype.forEach.call(sItems,function(el,k){
+    el.addEventListener('mouseenter',function(){ F.sIdx=k; paintSettings(); });
+    el.addEventListener('click',function(){ F.sIdx=k; paintSettings(); togglePick(); });
+  });
+  F.sIdx=0; F.sLast=-1; paintPicks(); paintSettings();
+}
+function paintPicks(){
+  var favs=S.favorites||[];
+  Array.prototype.forEach.call(sItems,function(el,k){
+    var n=favs.indexOf(pkIds[k]), b=el.lastChild;
+    b.className='pk-n'+(n>-1?' on':''); b.textContent=n>-1?(n+1):'';
+  });
+}
+function togglePick(){
+  var id=pkIds[F.sIdx]; if(!id) return;
+  S.favorites=(S.favorites||[]).filter(function(x){ return APPS[x]; });
+  var i=S.favorites.indexOf(id);
+  if(i>-1) S.favorites.splice(i,1); else S.favorites.push(id);
+  saveS(); paintPicks();
+}
+function closeFavPicker(){
+  F.sub=null;
+  renderSettings(); F.sIdx=pkReturn; paintSettings();
+  render();
+}
+
+/* ---------- input ---------- */
+var K={LEFT:37,UP:38,RIGHT:39,DOWN:40,OK:13,BACK:461,ESC:27,BKSP:8,RED:403,YELLOW:405};
+var okTimer=null, holdFired=false, okDown=false;
+function onOk(){
+  if(F.zone==='rows'){ if(!rows.length) return; if(F.moving) endMove(); else launch(rows[F.row].ids[col()]); }
+  else if(F.zone==='top'){ if(F.top===0) openTvSettings(); else openSettings(); }
+  else if(F.zone==='peek'){ F.zone='rows'; applyFocus(); }
+  else if(F.zone==='menu') menuItems[F.mIdx].act();
+  else if(F.zone==='settings'){ if(F.sub) togglePick(); else changeOpt(1,true); }
+}
+function onHold(){ if(F.zone==='rows'&&!F.moving) openMenu(); else onOk(); }
+function onBack(){
+  if(!$('debug').hidden){ toggleDebug(); return; }
+  if(F.zone==='settings'&&F.sub) closeFavPicker();
+  else if(F.zone==='settings'&&F.page>=0) closePage();
+  else if(F.zone==='settings') closeSettings();
+  else if(F.zone==='menu'){ closeMenu(); applyFocus(); }
+  else if(F.moving) endMove();
+  else if(F.zone==='top'||F.zone==='peek'){ F.zone=rows.length?'rows':'top'; applyFocus(); }
+  else if(F.zone==='rows'&&rows.length&&(F.row>0||col()>0)){ F.row=0; F.cols[rows[0].key]=0; applyFocus(); }
+}
+function nav(k){
+  if(F.zone==='settings'&&F.sub){
+    if(k===K.UP) F.sIdx=Math.max(0,F.sIdx-1);
+    else if(k===K.DOWN) F.sIdx=Math.min(sItems.length-1,F.sIdx+1);
+    paintSettings(); return;
+  }
+  if(F.zone==='settings'){
+    if(k===K.UP) F.sIdx=Math.max(0,F.sIdx-1);
+    else if(k===K.DOWN) F.sIdx=Math.min(sFocusable.length-1,F.sIdx+1);
+    else if(k===K.LEFT) return changeOpt(-1);
+    else if(k===K.RIGHT) return changeOpt(1);
+    if(resetArmed){ resetArmed=false; refreshOpt(); }
+    paintSettings(); return;
+  }
+  if(F.zone==='menu'){
+    if(k===K.UP) F.mIdx=Math.max(0,F.mIdx-1);
+    if(k===K.DOWN) F.mIdx=Math.min(menuItems.length-1,F.mIdx+1);
+    paintMenu(); return;
+  }
+  if(F.zone==='peek'){
+    if(k===K.UP){ F.zone='top'; F.top=1; applyFocus(); }
+    else if(k===K.DOWN){ F.zone='rows'; applyFocus(); }
+    return;
+  }
+  if(F.zone==='top'){
+    if(k===K.DOWN&&rows.length){ F.zone='peek'; applyFocus(); }
+    else if(k===K.LEFT&&F.top>0){ F.top--; applyFocus(); }
+    else if(k===K.RIGHT&&F.top<1){ F.top++; applyFocus(); }
+    return;
+  }
+  if(!rows.length){ if(k===K.UP){ F.zone='top'; F.top=1; applyFocus(); } return; }
+  if(F.moving){ if(k===K.LEFT) moveBy(-1); else if(k===K.RIGHT) moveBy(1); return; }
+  var r=rows[F.row], c=col();
+  if(k===K.LEFT&&c>0) F.cols[r.key]=c-1;
+  else if(k===K.RIGHT&&c<r.ids.length-1) F.cols[r.key]=c+1;
+  else if(k===K.UP){ if(F.row>0) F.row--; else F.zone='peek'; }
+  else if(k===K.DOWN&&F.row<rows.length-1) F.row++;
+  else return;
+  var t=now();
+  if(t-lastNav<280){ if(!gliding){ gliding=true; stage.classList.add('glide'); } clearTimeout(glideT); glideT=setTimeout(endGlide,300); }
+  applyFocus();
+  lastNav=t;
+}
+var gliding=false, glideT=null;
+function endGlide(){ gliding=false; stage.classList.remove('glide'); }
+var lastRepeat=0;
+document.addEventListener('keydown',function(e){
+  var k=e.keyCode;
+  if(F.editing){
+    if(k===K.OK){ e.preventDefault(); F.skipOkUp=true; endEdit(true); }
+    else if(k===K.BACK||k===K.ESC){ e.preventDefault(); endEdit(false); }
+    return;                                      /* let the keyboard handle everything else */
+  }
+  if(k===404){ e.preventDefault(); if(isPhotoMode()){ toast('Loading the next wallpaper…'); wpNext(true); } return; }
+  if(k===K.OK){ e.preventDefault(); if(okDown) return; okDown=true; holdFired=false; okTimer=setTimeout(function(){ holdFired=true; onHold(); },550); return; }
+  if(k===K.BACK||k===K.ESC||k===K.BKSP){ e.preventDefault(); onBack(); return; }
+  if(k===48||k===96||k===406){ e.preventDefault(); toggleDebug(); return; }
+  if(k===K.RED){ e.preventDefault(); if(F.zone==='settings') closeSettings(); else openSettings(); return; }
+  if(k===K.YELLOW||e.key==='ContextMenu'){ e.preventDefault(); if(F.zone==='rows') openMenu(); return; }
+  if(k>=37&&k<=40){
+    e.preventDefault();
+    /* holding an arrow: cap the repeat rate so the TV isn't asked for more than it can draw */
+    if(e.repeat){ var t=now(); if(t-lastRepeat<(S.quality==='lite'?70:110)) return; lastRepeat=t; }
+    nav(k);
+  }
+});
+document.addEventListener('keyup',function(e){
+  if(e.keyCode===K.OK){ if(F.skipOkUp||F.editing){ F.skipOkUp=false; okDown=false; return; } okDown=false; clearTimeout(okTimer); if(!holdFired) onOk(); }
+  if(e.keyCode>=37&&e.keyCode<=40&&heroId){ clearTimeout(bdTimer); bdTimer=setTimeout(function(){ paintBackdrop(APPS[heroId]); },S.quality==='lite'?120:200); }
+});
+
+/* pointer (Magic Remote / mouse): delegated, one set of listeners */
+var tiltOn=false;
+function cardFrom(t){ while(t&&t!==stage){ if(t.classList&&t.classList.contains('card')) return t; t=t.parentNode; } return null; }
+$('rows').addEventListener('mouseover',function(e){
+  var c=cardFrom(e.target); if(!c||F.moving) return;
+  if(F.zone!=='rows'&&F.zone!=='top'&&F.zone!=='peek') return;
+  var ri=+c.getAttribute('data-r'), ci=+c.getAttribute('data-c');
+  if(ri===F.row&&ci===col()&&F.zone==='rows') return;
+  F.zone='rows'; F.row=ri; F.cols[rows[ri].key]=ci;
+  var keep=S.scroll; S.scroll='free'; applyFocus(); S.scroll=keep;
+});
+var tiltRaf=0, tiltEvt=null;
+$('rows').addEventListener('mousemove',function(e){
+  if(!S.parallax||S.quality==='lite'||!focusedCard) return;
+  if(!tiltOn){ tiltOn=true; stage.classList.add('tilt'); }
+  tiltEvt=e;
+  if(!tiltRaf) tiltRaf=requestAnimationFrame(function(){
+    tiltRaf=0; if(!focusedCard||!tiltEvt) return;
+    var f=focusedCard.querySelector('.lift'), r=f.getBoundingClientRect();
+    var x=Math.max(-.5,Math.min(.5,(tiltEvt.clientX-r.left)/r.width-.5)), y=Math.max(-.5,Math.min(.5,(tiltEvt.clientY-r.top)/r.height-.5));
+    f.style.setProperty('--ry',(x*12)+'deg'); f.style.setProperty('--rx',(-y*10)+'deg');
+  });
+});
+$('rows').addEventListener('mouseleave',function(){ if(focusedCard){ var f=focusedCard.querySelector('.lift'); f.style.setProperty('--rx','0deg'); f.style.setProperty('--ry','0deg'); } });
+$('rows').addEventListener('click',function(e){
+  var c=cardFrom(e.target); if(!c) return;
+  if(F.zone==='menu'){ closeMenu(); applyFocus(); return; }
+  if(F.zone!=='rows') return;
+  if(F.moving){ endMove(); return; }
+  launch(rows[F.row].ids[col()]);
+});
+$('rows').addEventListener('contextmenu',function(e){ e.preventDefault(); if(F.zone==='rows'&&!F.moving) openMenu(); });
+$('gear').addEventListener('click',openSettings);
+$('tvset').addEventListener('click',openTvSettings);
+['tvset','gear'].forEach(function(n,i){ $(n).addEventListener('mouseenter',function(){ if(F.zone==='rows'||F.zone==='top'){ F.zone='top'; F.top=i; applyFocus(); } }); });
+$('scrim').addEventListener('click',closeSettings);
+stage.addEventListener('click',function(e){ if(F.zone==='menu'&&!$('menu').contains(e.target)){ closeMenu(); applyFocus(); } });
+
+/* back in front (Home button / relaunch): reset view, refresh app list quietly */
+function onReturn(){ hideZoom(); tick(); wxRefresh(false); haLoad(false); if(ON_DEVICE) loadTvApps(false); }
+/* handlesRelaunch is on, so webOS leaves it to the app to come to the front when launched again */
+function bringToFront(){
+  try{ if(window.webOSSystem&&typeof webOSSystem.activate==='function'){ webOSSystem.activate(); return 'webOSSystem'; } }catch(e){}
+  try{ if(window.PalmSystem&&typeof PalmSystem.activate==='function'){ PalmSystem.activate(); return 'PalmSystem'; } }catch(e){}
+  return 'none';
+}
+document.addEventListener('webOSRelaunch',function(){
+  if(ON_ANDROID) dlog('Home pressed'); else dlog('relaunched - bringing Lumen to the front via',bringToFront());
+  if(F.zone==='settings') closeSettings(); closeMenu(); F.moving=null; F.zone='rows'; applyFocus(true); onReturn();
+});
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) onReturn(); });
+
+/* ---------- fit stage ---------- */
+/* at the TV's own 1920x1080 the stage is placed with no transform at all, so nothing is resampled every frame */
+function fit(){
+  SCALE=Math.min(window.innerWidth/1920,window.innerHeight/1080);
+  if(Math.abs(SCALE-1)<.001){ SCALE=1; stage.style.left=stage.style.top='0'; stage.style.transform='none'; }
+  else { stage.style.left=stage.style.top=''; stage.style.transform='translate(-50%,-50%) scale('+SCALE+')'; }
+}
+window.addEventListener('resize',fit);
+
+/* ---------- boot ---------- */
+stage.classList.add('boot');
+fit(); applySettings(); renderHints();
+/* hooks the Android shell calls for keys and events webOS handles differently */
+window.lumenBack=function(){ onBack(); };
+window.lumenMenu=function(){ if(F.zone==='rows'&&!F.moving) openMenu(); else if(F.zone==='menu'){ closeMenu(); applyFocus(); } };
+window.lumenAppsChanged=function(){ loadTvApps(false); };
+window.toastFromAndroid=function(m){ hideZoom(); toast(m); };
+window.lumenHome=function(){ var e=document.createEvent('Event'); e.initEvent('webOSRelaunch',true,true); document.dispatchEvent(e); };
+if(ON_DEVICE){
+  var cached=readJSON(AKEY);
+  dlog('Lumen '+LUMEN_VERSION+' starting'+(ON_ANDROID?' (Android TV)':'')+', window '+window.innerWidth+'x'+window.innerHeight+' @'+(window.devicePixelRatio||1)+'x');
+  if(ON_ANDROID){ try{ dlog('device: '+window.LumenAndroid.deviceInfo()); }catch(e){} }
+  if(cached&&cached.length){ appSig=JSON.stringify(cached); setApps(cached,'tv'); render(); resolveIcons(); dlog('showing '+cached.length+' saved apps while refreshing'); }   /* instant start from last known list */
+  else render();                                                                             /* "Loading your apps" */
+  loadTvApps(false);
+  setTimeout(function(){ if(SOURCE==='none'&&loading) banner('Still reading your app list…',0); },6000);
+} else {
+  setApps(demoApps(),'demo'); render();
+}
+/* wallpapers: show the last photo straight away (browser cache), rotation continues from there */
+$('phShade').style.backgroundColor='rgba(0,0,0,'+(S.dim/100*.8)+')';
+if(isPhotoMode()){
+  var last=S.wpLast;
+  if(last&&last.mode===S.wallpaper&&last.url){
+    var bim=new Image();
+    bim.onload=function(){ wpShow(last,bim); WP.shownAt=Date.now(); };
+    bim.onerror=function(){ wpNext(); };
+    bim.src=last.url;
+  } else wpNext();
+}
+wxRefresh(false); haLoad(false);
+requestAnimationFrame(function(){ requestAnimationFrame(function(){ stage.classList.remove('boot'); }); });
+})();
+</script>

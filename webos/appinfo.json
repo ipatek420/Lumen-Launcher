@@ -1,0 +1,20 @@
+{
+  "id": "org.webosbrew.lumen",
+  "version": "2.4.0",
+  "vendor": "Lumen",
+  "type": "web",
+  "main": "index.html",
+  "title": "Lumen Launcher",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#06080c",
+  "iconColor": "#0a0626",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": true,
+  "transparent": false,
+  "requiredPermissions": [
+    "applications",
+    "applications.launcher"
+  ]
+}

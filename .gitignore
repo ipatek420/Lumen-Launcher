@@ -1,0 +1,7 @@
+node_modules/
+tests/shots/
+dist/
+__pycache__/
+# signing keys never belong in the repo
+*.keystore
+*.jks

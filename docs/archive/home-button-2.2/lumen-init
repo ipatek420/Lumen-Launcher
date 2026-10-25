@@ -1,0 +1,128 @@
+#!/bin/sh
+# Lumen boot hook, linked from /var/lib/webosbrew/init.d/61-lumen by lumen-home.js (the Homebrew
+# Channel runs that folder at every start, as root). It opens Lumen when the TV comes on (if
+# "Open Lumen when the TV turns on" is set) and, while Lumen has the Home button, when Back from
+# the last app would land on LG's Home. Adapted from Lightkeeper's hook (github.com/chiotas/lightkeeper).
+#
+# A new start of this script stops the old one: every loop checks the generation in
+# /tmp/lumen-home.gen, and the old loops' luna-send are stopped below. Log: /tmp/lumen-home.log.
+APP=org.webosbrew.lumen
+HOOK=${LUMEN_HOME_HOOK:-/var/lib/webosbrew/init.d/61-lumen}
+DATA=${LUMEN_HOME_DATA:-/var/lib/lumen}
+CONFIG=$DATA/config.json
+LOG=/tmp/lumen-home.log
+LS=${LUMEN_HOME_LUNA_SEND:-/usr/bin/luna-send}
+NODE=${LUMEN_HOME_NODE:-/usr/bin/node}
+HERE=$(dirname "$(readlink -f "$0")")
+GEN=$$
+cd / || exit 0
+[ -f "$CONFIG" ] || exit 0
+echo "$GEN" > /tmp/lumen-home.gen
+[ "$(wc -c < "$LOG" 2>/dev/null || echo 0)" -gt 65536 ] && mv -f "$LOG" "$LOG.old"
+
+say() { echo "$(date '+%F %T') $*" >> "$LOG"; }
+alive() { [ -L "$HOOK" ] && [ "$(cat /tmp/lumen-home.gen 2>/dev/null)" = "$GEN" ]; }
+on() { grep -q "\"$1\": true" "$CONFIG" 2>/dev/null; }
+front() {
+  $LS -n 1 -w 3000 luna://com.webos.applicationManager/getForegroundAppInfo '{}' 2>/dev/null |
+    sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p'
+}
+open_lumen() { $LS -n 1 -w 5000 luna://com.webos.applicationManager/launch "{\"id\":\"$APP\"}" >/dev/null 2>&1; }
+
+# Stop the subscriptions of an earlier start (its loops then end, being an old generation).
+# Read from /proc, which every webOS has, rather than ps, whose columns differ between versions.
+for d in /proc/[0-9]*; do
+  cmd=$(tr '\0' ' ' < "$d/cmdline" 2>/dev/null)
+  # only our own two listeners, matched from the start of their command line
+  case "$cmd" in
+    "$LS -i luna://com.webos.service.tvpower/power/getPowerState "*|"$LS -i luna://com.webos.applicationManager/getAppLifeEvents "*)
+      kill "${d#/proc/}" 2>/dev/null ;;
+  esac
+done
+say "started (home: $(on home && echo on || echo off), power on: $(on powerOn && echo on || echo off))"
+
+# Put Home back in GlassHouse after a GlassHouse update reset it, and the hook after a Lumen update.
+[ -x "$NODE" ] && [ -f "$HERE/lumen-home.js" ] && (sleep 20; "$NODE" "$HERE/lumen-home.js" ensure-key >/dev/null 2>&1) &
+
+# Only over LG's Home, live TV or an input: a TV switched on with the Netflix button stays on Netflix.
+open_at_power_on() {
+  sleep 1
+  fg=$(front)
+  case "$fg" in
+    ""|com.webos.app.home|com.webos.app.livetv|com.webos.app.inputcommon|com.webos.app.hdmi*)
+      say "TV on: opening Lumen (in front: ${fg:-nothing})"; open_lumen ;;
+    *) say "TV on: not opening, $fg is in front" ;;
+  esac
+}
+
+# Signed in to an LG account, webOS opens com.webos.app.membership about 40 s after a cold start,
+# and on some TVs it spins for good: for 2 minutes after switching on it is closed and Lumen put back.
+close_account_popup() {
+  n=0
+  while [ $n -lt 40 ]; do
+    sleep 3; n=$((n+1))
+    [ "$(front)" = com.webos.app.membership ] || continue
+    say "closing com.webos.app.membership"
+    $LS -n 1 -w 5000 luna://com.webos.applicationManager/closeByAppId '{"id":"com.webos.app.membership"}' >/dev/null 2>&1
+    sleep 1; open_lumen
+    return
+  done
+}
+
+# Switching on, from standby (Quick Start+) or a cold start. The hook starts well into a cold
+# start, so the first "Active" it sees counts as switching on.
+(
+  off=1
+  while alive; do
+    $LS -i luna://com.webos.service.tvpower/power/getPowerState '{"subscribe":true}' 2>/dev/null |
+    while read -r line; do
+      alive || exit
+      st=$(echo "$line" | sed -n 's/.*"state" *: *"\([^"]*\)".*/\1/p')
+      [ -n "$st" ] || continue
+      case "$st" in
+        Active) [ "$off" = 1 ] && on powerOn && { open_at_power_on; close_account_popup & }; off=0 ;;
+        "Screen Saver"|"Screen Off") off=0 ;;
+        Prepared) ;;
+        *) off=1 ;;
+      esac
+    done
+    off=0      # luna-send started again with the TV already on
+    sleep 5
+  done
+) </dev/null >/dev/null 2>&1 &
+
+# Back from the last app: webOS opens LG's Home. If the full-screen app before it wasn't Lumen,
+# Lumen is put in its place. Screen savers and overlays don't count.
+(
+  while alive; do
+    $LS -i luna://com.webos.applicationManager/getAppLifeEvents '{"subscribe":true}' 2>/dev/null |
+    while read -r line; do
+      alive || exit
+      case "$line" in *'"event":"foreground"'*_WEBOS_WINDOW_TYPE_CARD*) ;; *) continue ;; esac
+      app=$(echo "$line" | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p')
+      if [ "$app" = com.webos.app.home ] && [ -n "$before" ] && [ "$before" != "$APP" ] && [ "$before" != "$app" ] && on home; then
+        say "LG's Home after $before: opening Lumen"
+        sleep 1; open_lumen
+        sleep 2; [ "$(front)" = com.webos.app.home ] && { say "still LG's Home: again"; open_lumen; }
+      fi
+      before=$app
+    done
+    sleep 5
+  done
+) </dev/null >/dev/null 2>&1 &
+
+# Lumen deleted from the TV: give Home back to LG and stop. Checked every minute; three misses in a
+# row, so an update (which replaces the app for a moment) doesn't count.
+(
+  miss=0
+  while alive; do
+    sleep ${LUMEN_HOME_WATCH:-60}
+    if [ -f "$HERE/lumen-home.js" ]; then miss=0; else miss=$((miss+1)); fi
+    if [ $miss -ge 3 ]; then
+      say "Lumen is gone: giving Home back"
+      [ -x "$NODE" ] && "$NODE" "$DATA/lumen-home.js" remove >/dev/null 2>&1
+      rm -f "$HOOK"; echo stopped > /tmp/lumen-home.gen
+      exit
+    fi
+  done
+) </dev/null >/dev/null 2>&1 &
