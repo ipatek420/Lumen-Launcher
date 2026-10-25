@@ -23,7 +23,7 @@ A home screen for rooted LG webOS TVs in the style of Apple TV and Projectivy La
 | **Home Assistant row** | **Dynamic colours from the focused app** |
 | ![Home Assistant row](docs/screenshots/home-assistant-row.jpg) | ![Dynamic colours](docs/screenshots/dynamic.jpg) |
 
-<sub>Screenshots are from Lumen's browser preview, which runs with sample apps and sample weather. They use the built-in gradient wallpapers (Aurora, Dusk, Ocean, Ember); on the TV you can also choose photo wallpapers.</sub>
+<sub>Screenshots are from Lumen's browser preview (I took some photos of the actual TV for preview), which runs with sample apps and sample weather. They use the built-in gradient wallpapers (Aurora, Dusk, Ocean, Ember); on the TV you can also choose photo wallpapers.</sub>
 
 ## Requirements
 
