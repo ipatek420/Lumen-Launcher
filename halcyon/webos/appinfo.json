@@ -1,0 +1,20 @@
+{
+  "id": "org.webosbrew.halcyon",
+  "version": "1.0.0",
+  "vendor": "Halcyon",
+  "type": "web",
+  "main": "index.html",
+  "title": "Halcyon",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#05070d",
+  "iconColor": "#1a1d44",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": true,
+  "transparent": false,
+  "requiredPermissions": [
+    "applications",
+    "applications.launcher"
+  ]
+}

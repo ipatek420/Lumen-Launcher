@@ -1,0 +1,1777 @@
+<title>Halcyon</title>
+<meta name="viewport" content="width=1920, initial-scale=1">
+<!--FONTS-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;1,300&family=Manrope:wght@400;500;600;700&display=swap">
+<!--/FONTS-->
+<style>
+/* Halcyon: a calm home screen. A sky that follows the time of day, a greeting, one shelf of cards under tabs,
+   and a dock of sources and scenes. Fixed 1920x1080 stage; only transform and opacity are ever animated. */
+:root{
+  --bg:#05070d;
+  --ink:#f4f1ea;
+  --muted:rgba(240,236,228,.68);
+  --faint:rgba(240,236,228,.4);
+  --panel:#10121a;
+  --pill:#f4f1ea;
+  --pill-ink:#11131b;
+  --accent:#f2c47e;
+  --accent-soft:rgba(242,196,126,.5);
+  --accent-faint:rgba(242,196,126,.16);
+  --serif:'Fraunces','Georgia','LG Smart UI',serif;
+  --sans:'Manrope','LG Smart UI','Segoe UI',system-ui,sans-serif;
+  --radius:22px; --scale:1.08; --dur:.32s;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;overflow:hidden;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;cursor:default;background:var(--bg)}
+#stage.boot *{transition:none!important;animation:none!important}
+
+/* ---------- backdrop: two canvases cross-faded by opacity; photos on two more layers ---------- */
+.bd{position:absolute;left:0;top:0;width:1920px;height:1080px;opacity:0;transition:opacity .9s ease;will-change:opacity}
+.bd.on{opacity:1}
+.ph,#phShade{position:absolute;left:0;top:0;width:1920px;height:1080px;display:none}
+.ph{background-size:cover;background-position:center;opacity:0;transition:opacity 1.4s ease;will-change:opacity}
+.ph.on{opacity:1}
+#stage.photo .ph,#stage.photo #phShade{display:block}
+#stage.photo .bd{display:none}
+#phShade{background-image:linear-gradient(90deg,rgba(5,7,13,.78) 0%,rgba(5,7,13,.34) 42%,rgba(5,7,13,0) 70%),linear-gradient(0deg,rgba(5,7,13,.92) 0%,rgba(5,7,13,.5) 40%,rgba(5,7,13,0) 66%),linear-gradient(180deg,rgba(5,7,13,.55) 0%,rgba(5,7,13,0) 24%);transition:opacity .6s ease;will-change:opacity}
+#credit{position:absolute;right:96px;top:196px;max-width:560px;text-align:right;z-index:5;font-size:18px;line-height:1.4;color:rgba(255,255,255,.6);text-shadow:0 1px 10px rgba(0,0,0,.7);transition:opacity .4s}
+#credit b{display:block;font-weight:600;color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#credit span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- greeting (top left) and clock (top right) ---------- */
+#head{position:absolute;left:120px;top:70px;z-index:4;transition:opacity .45s ease}
+#greet{font-family:var(--serif);font-weight:300;font-size:50px;line-height:1.1;letter-spacing:-.01em;white-space:nowrap}
+#greet i{font-style:italic;color:var(--accent);transition:color .6s ease}
+#context{margin-top:12px;font-size:23px;color:var(--muted);letter-spacing:.01em;white-space:nowrap;display:flex;align-items:center}
+#context .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--faint);margin:0 16px}
+#context svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-right:10px}
+#stage.no-greet #greet{display:none}
+#top{position:absolute;top:62px;right:96px;display:flex;align-items:center;z-index:5;transition:opacity .3s}
+#time{font-family:var(--serif);font-weight:300;font-size:74px;line-height:1;letter-spacing:-.02em;font-variant-numeric:lining-nums tabular-nums;margin-right:20px}
+#time .ap{font-family:var(--sans);font-size:22px;font-weight:600;letter-spacing:.1em;color:var(--muted);margin-left:10px}
+#stage.no-clock #time{display:none}
+.tbtn{position:relative;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.09);color:var(--ink);margin-left:16px;transition:transform var(--dur),background-color var(--dur),color var(--dur)}
+.tbtn svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tbtn.focus{background:var(--pill);color:var(--pill-ink);transform:scale(1.12)}
+.tl{position:absolute;top:100%;right:50%;margin-top:16px;transform:translate3d(50%,-6px,0) scale(.89);white-space:nowrap;font-size:20px;font-weight:600;color:var(--ink);opacity:0;transition:opacity var(--dur),transform var(--dur);text-shadow:0 1px 10px rgba(0,0,0,.6);pointer-events:none}
+.tbtn.focus .tl{opacity:1;transform:translate3d(50%,0,0) scale(.89)}
+
+/* ---------- hero: anchored to its bottom edge, just above the tabs ---------- */
+#hero{position:absolute;left:120px;bottom:560px;width:1100px;z-index:2;transition:opacity .45s ease}
+#eyebrow{font-size:19px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);height:26px;transition:color .6s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#title{font-family:var(--serif);font-weight:400;font-size:100px;line-height:1.06;letter-spacing:-.025em;margin:10px 0 0;padding-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#desc{font-size:26px;line-height:1.45;color:var(--muted);margin-top:10px;max-width:780px;max-height:76px;overflow:hidden}
+#hero.swapA .hx{animation:heroA .5s cubic-bezier(.2,.8,.2,1) both}
+#hero.swapB .hx{animation:heroB .5s cubic-bezier(.2,.8,.2,1) both}
+#hero.swapA #desc,#hero.swapB #desc{animation-delay:.06s}
+@keyframes heroA{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:none}}
+@keyframes heroB{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:none}}
+#stage.no-hero #hero{opacity:0}
+
+/* ---------- shelf: tabs, then one track of cards ---------- */
+#shelf{position:absolute;left:0;right:0;top:0;z-index:3;transition:transform .6s cubic-bezier(.25,.8,.25,1),opacity .6s ease;will-change:transform,opacity}
+#tabs{position:absolute;left:120px;height:46px;display:flex;align-items:flex-start}
+.tab{position:relative;font-size:24px;font-weight:600;color:var(--faint);margin-right:44px;height:46px;line-height:34px;transition:color var(--dur);white-space:nowrap}
+.tab.on{color:var(--ink)}
+.tab .n{font-size:17px;font-weight:600;color:var(--faint);margin-left:9px;font-variant-numeric:tabular-nums}
+.tab.focus{color:var(--pill-ink)}
+.tab.focus .n{color:rgba(17,19,27,.55)}
+/* the pill behind a focused tab and the underline under the open tab: both moved with transform only */
+#tabpill{position:absolute;left:-20px;top:-8px;height:50px;width:100px;border-radius:25px;background:var(--pill);transform-origin:0 0;opacity:0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur);will-change:transform,opacity;z-index:-1}
+#tabbar{position:absolute;left:0;top:42px;height:3px;width:100px;border-radius:2px;background:var(--accent);transform-origin:0 0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur),background-color .6s;will-change:transform}
+#stage.z-tabs #tabpill{opacity:1}
+#stage.z-tabs #tabbar{opacity:0}
+#tabs .tab:first-child{margin-left:0}
+/* the track's window starts just left of the first card: cards that scroll past slide out of view under the clip
+   (fading each one out instead cost a layer promotion and a re-raster of the whole track per step) */
+#trackWrap{position:absolute;left:96px;right:0;padding:80px 0 0 24px;overflow:hidden}
+#track{position:relative;display:flex;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);will-change:transform}
+#stage.glide #track{transition-duration:.15s;transition-timing-function:linear}
+.card{flex:none;margin-right:36px;position:relative}
+.lift{position:relative;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);will-change:transform}
+.halo{position:absolute;left:0;top:0;right:0;bottom:0;border-radius:var(--radius);opacity:0;transition:opacity var(--dur);box-shadow:0 26px 44px rgba(0,0,0,.55);will-change:opacity}
+.ring{position:absolute;left:-7px;top:-7px;right:-7px;bottom:-7px;border-radius:calc(var(--radius) + 7px);box-shadow:inset 0 0 0 3px var(--ink);opacity:0;transition:opacity var(--dur);will-change:opacity;display:none}
+/* light spilling from behind the focused card, in the accent colour: one element for the whole shelf that glides
+   to the focused card, so an accent change repaints one layer rather than one per card */
+#glow{position:absolute;left:0;top:0;z-index:0;border-radius:50%;background:radial-gradient(ellipse at 50% 56%,var(--accent-soft) 0%,var(--accent-faint) 34%,rgba(0,0,0,0) 70%);opacity:0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur);will-change:transform,opacity;display:none;pointer-events:none}
+#stage.fx-glow #glow{display:block}
+#stage.z-shelf #glow{opacity:1}
+#stage.glide #glow{transition-duration:.15s;transition-timing-function:linear}
+#stage.lite #glow{display:none}
+#stage.fx-ring .ring{display:block}
+.face{position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.3)}
+.face::after{content:"";position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,0) 40%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+.art{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center}
+.art svg{height:40%;width:auto;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.art img{max-width:50%;max-height:62%}
+.art.seam img{width:88%;height:88%;max-width:none;max-height:none;object-fit:contain}
+.art.tile img{max-width:62%;max-height:74%;border-radius:22px}
+#stage.shape-icon .art.tile img{max-width:80%;max-height:80%}
+.art.nm{flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:0 24px 20px;box-sizing:border-box}
+.art.nm svg{position:absolute;left:22px;top:20px;height:28%;stroke-width:1.6}
+.nm-t{font-family:var(--serif);font-size:30px;line-height:1.1;letter-spacing:-.01em;color:#fff;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stage.shape-icon .nm-t{font-size:21px}
+.mono{font-family:var(--serif);font-weight:400;font-size:66px;letter-spacing:-.02em;color:rgba(255,255,255,.92)}
+#stage.shape-icon .mono{font-size:52px}
+.label{margin-top:24px;font-size:23px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity var(--dur),transform var(--dur) cubic-bezier(.2,.8,.2,1)}
+#stage.labels-focus .card:not(.focus) .label{opacity:0}
+#stage.labels-never .label{display:none}
+.card.focus .label{color:var(--ink);transform:translate3d(0,calc((var(--scale) - 1) * var(--h) / 2),0)}
+.card.focus .lift{transform:translate3d(0,-8px,0) scale(var(--scale))}
+.card.focus .halo,.card.focus .ring{opacity:1}
+#stage.glide .lift,#stage.glide .halo,#stage.glide .ring,#stage.glide .label{transition-duration:.15s}
+#stage.lite .face{box-shadow:none}
+#stage.lite .halo{box-shadow:none}
+#stage.lite.fx-glow .ring,#stage.lite.fx-lift .ring{display:block}
+.card.moving .lift{animation:wig .22s ease-in-out infinite alternate}
+@keyframes wig{from{transform:translate3d(0,-8px,0) scale(var(--scale)) rotate(-1.3deg)}to{transform:translate3d(0,-8px,0) scale(var(--scale)) rotate(1.3deg)}}
+.nudge{display:none;position:absolute;top:0;left:-30px;right:-30px;height:var(--h);justify-content:space-between;align-items:center;pointer-events:none;z-index:4}
+.nudge span{width:44px;height:44px;border-radius:50%;background:var(--pill);color:var(--pill-ink);display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1}
+.card.moving .nudge{display:flex}
+.empty{font-family:var(--serif);font-size:34px;color:var(--muted);padding-top:20px}
+
+/* ---------- dock: sources (inputs) and scenes (Home Assistant) as pills ---------- */
+#dock{position:absolute;left:120px;right:96px;height:64px;display:flex;align-items:center;z-index:4;transition:opacity .45s ease}
+.dsec{font-size:15px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-right:22px;white-space:nowrap}
+.dsep{width:1px;height:34px;background:rgba(255,255,255,.16);margin:0 30px 0 12px;flex:none}
+.pill{position:relative;height:60px;padding:0 26px 0 20px;margin-right:14px;border-radius:30px;background:rgba(255,255,255,.09);display:flex;align-items:center;font-size:21px;font-weight:600;white-space:nowrap;flex:none;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),background-color var(--dur),color var(--dur)}
+.pill svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-right:12px;flex:none}
+.pill .sw{width:12px;height:12px;border-radius:50%;margin-right:12px;flex:none}
+.pill.focus{background:var(--pill);color:var(--pill-ink);transform:scale(1.07)}
+.pill.ok::after{content:"";position:absolute;right:10px;top:10px;width:9px;height:9px;border-radius:50%;background:#7fe0a6}
+
+/* ---------- zones: Up to the top buttons lets the sky through ---------- */
+#stage.z-top #shelf{transform:translate3d(0,150px,0);opacity:.14}
+#stage.z-top #dock{opacity:0}
+#stage.z-top #phShade{opacity:.5}
+#stage.z-top #credit{opacity:0}
+#stage.speed-off #shelf,#stage.speed-off #hero,#stage.speed-off #dock{transition:none}
+
+/* ---------- hints / banner / toast / fps ---------- */
+#hints{position:absolute;right:96px;z-index:4;display:flex;align-items:center;font-size:19px;color:var(--faint);transition:opacity .3s;height:34px}
+#hints .k{display:inline-block;padding:3px 10px;margin-right:9px;border-radius:8px;background:rgba(255,255,255,.1);color:var(--muted);font-weight:700;font-size:15px;letter-spacing:.06em}
+#hints .h{margin-right:30px}
+#hints .h:last-child{margin-right:0}
+#stage.no-hints #hints,#stage.z-top #hints{opacity:0}
+#banner{position:absolute;left:120px;top:200px;max-width:1150px;padding:14px 22px;border-radius:14px;background:rgba(255,170,110,.16);color:#ffd9bd;font-size:21px;line-height:1.4;z-index:6}
+#toast{position:absolute;left:50%;top:60px;transform:translate3d(-50%,-30px,0);padding:16px 30px;border-radius:999px;background:var(--panel);box-shadow:0 20px 50px rgba(0,0,0,.45);font-size:23px;font-weight:600;opacity:0;transition:opacity .3s,transform .3s;z-index:30;white-space:nowrap}
+#toast.on{opacity:1;transform:translate3d(-50%,0,0)}
+#fps{position:absolute;right:24px;bottom:18px;z-index:40;font:600 20px/1 ui-monospace,Menlo,Consolas,monospace;color:#7fe0a6;background:rgba(0,0,0,.6);padding:8px 12px;border-radius:8px}
+
+/* launch: the card grows to full screen, transform only */
+#zoom{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:25;overflow:hidden;opacity:0;pointer-events:none;transform-origin:0 0}
+#zoom.go{transition:transform .5s cubic-bezier(.6,0,.2,1),opacity .3s}
+#zoom .art svg{height:28%}
+
+/* ---------- options menu ---------- */
+#menu{position:absolute;z-index:20;width:440px;padding:12px;border-radius:28px;background:var(--panel);box-shadow:0 30px 80px rgba(0,0,0,.6);opacity:0;transform:scale(.94);transform-origin:top left;transition:opacity .18s,transform .18s;pointer-events:none}
+#menu.open{opacity:1;transform:none;pointer-events:auto}
+#menu .mh{font-family:var(--serif);font-size:28px;color:var(--ink);padding:14px 22px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi{height:62px;display:flex;align-items:center;padding:0 22px;border-radius:16px;font-size:24px;font-weight:600;color:var(--muted)}
+.mi.focus{background:var(--pill);color:var(--pill-ink)}
+
+/* ---------- settings sheet ---------- */
+#scrim{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .3s;z-index:9}
+#scrim.on{opacity:1;pointer-events:auto}
+#settings{position:absolute;top:0;right:0;bottom:0;width:720px;background:var(--panel);z-index:10;transform:translate3d(102%,0,0);transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column}
+#settings.open{transform:none}
+#s-head{padding:66px 58px 24px}
+#s-head h2{margin:0;font-family:var(--serif);font-weight:400;font-size:52px;letter-spacing:-.015em}
+#s-head p{margin:10px 0 0;color:var(--faint);font-size:20px}
+#s-list{flex:1;overflow:hidden;padding:0 30px 60px;position:relative}
+.si{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-radius:20px;font-size:24px;font-weight:500}
+.si .v{color:var(--muted);font-size:22px;display:flex;align-items:center;font-weight:600}
+.si .chev{opacity:0;margin:0 12px;font-size:26px;line-height:1}
+.si.focus{background:var(--pill);color:var(--pill-ink)}
+.si.focus .v{color:rgba(17,19,27,.68)}
+.si.focus .chev{opacity:.55}
+.si.pg .chev{opacity:.45;margin-right:0}
+.si>span:first-child{flex:none;margin-right:16px}
+.tog{width:58px;height:32px;border-radius:999px;background:rgba(255,255,255,.18);position:relative}
+.tog::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.tog.on{background:var(--accent)}
+.tog.on::after{transform:translateX(26px)}
+.si.focus .tog{background:rgba(17,19,27,.2)}
+.si.focus .tog.on{background:#2f8f62}
+.swc{display:flex;align-items:center}
+.swd{width:18px;height:18px;border-radius:50%;margin:0 7px;flex:none;opacity:.45}
+.swd.sel{width:28px;height:28px;opacity:1;box-shadow:0 0 0 3px var(--panel),0 0 0 5px currentColor}
+.si.focus .swd.sel{box-shadow:0 0 0 3px var(--pill),0 0 0 5px var(--pill-ink)}
+.swd.auto{background:conic-gradient(#f2c47e,#ff9b85,#c9a8ff,#8cc8ff,#6fe0d0,#f2c47e)!important}
+.si .swn{min-width:96px;text-align:right;margin-left:10px}
+.si input.tx{background:transparent;border:0;outline:0;color:inherit;font:inherit;font-size:22px;font-weight:600;text-align:right;width:320px;padding:0;caret-color:var(--accent)}
+.si.focus input.tx{color:var(--pill-ink)}
+.si.editing{box-shadow:inset 0 0 0 3px var(--accent)}
+.pk{display:flex;align-items:center}
+.pk-n{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);margin-left:16px;font-variant-numeric:tabular-nums}
+.pk-n.on{background:var(--accent);color:#11131b;box-shadow:none}
+.si.focus .pk-n{box-shadow:inset 0 0 0 2px rgba(17,19,27,.35)}
+.si.focus .pk-n.on{background:#11131b;color:var(--pill);box-shadow:none}
+.si .sub{font-size:18px;color:var(--faint);margin-left:14px}
+.si.focus .sub{color:rgba(17,19,27,.55)}
+.si .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:470px}
+#debug{position:absolute;top:0;right:0;bottom:0;width:820px;z-index:60;background:rgba(0,0,0,.92);color:#a8f5c4;padding:28px 30px;overflow:hidden;font:15px/1.5 ui-monospace,Menlo,Consolas,monospace}
+#debug .dh{color:#fff;font-weight:600;margin-bottom:12px;font-family:var(--sans);font-size:18px}
+#debug pre{margin:0;white-space:pre-wrap;word-break:break-all}
+@media (prefers-reduced-motion:reduce){#stage *{animation:none!important;transition-duration:.01s!important}}
+</style>
+
+<div id="stage" class="boot">
+  <canvas class="bd" id="bdA" width="960" height="540"></canvas>
+  <canvas class="bd" id="bdB" width="960" height="540"></canvas>
+  <div class="ph" id="phA"></div>
+  <div class="ph" id="phB"></div>
+  <div id="phShade"></div>
+  <div id="credit" hidden></div>
+
+  <div id="head">
+    <div id="greet"></div>
+    <div id="context"></div>
+  </div>
+  <div id="top">
+    <div id="time"></div>
+    <div class="tbtn" id="tvset" role="button" aria-label="TV settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4.5h18v12H3z M8.5 20.5h7 M12 16.5v4"/><path d="M12 8.2a2.3 2.3 0 1 0 0 4.6a2.3 2.3 0 1 0 0-4.6z"/></svg>
+      <span class="tl">TV settings</span>
+    </div>
+    <div class="tbtn" id="gear" role="button" aria-label="Halcyon settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9 M17 7h3 M15 5v4 M4 17h3 M11 17h9 M9 15v4 M4 12h5 M13 12h7 M11 10v4"/></svg>
+      <span class="tl">Halcyon settings</span>
+    </div>
+  </div>
+
+  <div id="hero"><div id="eyebrow" class="hx"></div><h1 id="title" class="hx"></h1><div id="desc" class="hx"></div></div>
+
+  <div id="shelf">
+    <div id="tabs"></div>
+    <div id="trackWrap"><div id="track"></div></div>
+  </div>
+  <div id="dock"></div>
+  <div id="hints"></div>
+
+  <div id="banner" role="status" hidden></div>
+  <div id="zoom"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="fps" hidden></div>
+  <div id="debug" hidden><div class="dh">Debug log &nbsp;·&nbsp; 0 or the blue button closes it</div><pre></pre></div>
+  <div id="menu"></div>
+  <div id="scrim"></div>
+  <div id="settings"><div id="s-head"></div><div id="s-list"></div></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+if(typeof Object.assign!=='function'){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];if(s)for(var k in s)if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}return t;};}
+var SELF_ID='org.webosbrew.halcyon', VERSION='1.0';
+var K_SET='halcyon.settings.v1', K_APPS='halcyon.apps.v1', K_COLORS='halcyon.colors.v1', K_ICONS='halcyon.icons.v1', K_WX='halcyon.wx.v1', K_HA='halcyon.ha.v1';
+var stage=document.getElementById('stage');
+var $=function(id){ return document.getElementById(id); };
+var now=function(){ return (window.performance&&performance.now)?performance.now():Date.now(); };
+var SCALE=1;
+var ON_TV=typeof window.PalmServiceBridge!=='undefined';
+
+/* ---------- small helpers ---------- */
+function readJSON(k){ try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function writeJSON(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function esc(s){ return String(s).replace(/[&<>"']/g,function(c){ return '&#'+c.charCodeAt(0)+';'; }); }
+function shq(s){ return "'"+String(s).replace(/'/g,"'\\''")+"'"; }
+function hexRgb(h){ h=String(h||'#556').replace('#',''); if(h.length===3) h=h.replace(/./g,'$&$&'); var n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function toRgb(c){ if(!c) return [80,90,110]; if(c.join) return c; if(c.charAt(0)==='#') return hexRgb(c); var m=String(c).match(/\d+/g); return m?[+m[0],+m[1],+m[2]]:[80,90,110]; }
+function rgbS(c,a){ c=toRgb(c); return a===undefined?'rgb('+c.join(',')+')':'rgba('+c.join(',')+','+a+')'; }
+function rgbHex(c){ return '#'+c.map(function(v){ v=Math.max(0,Math.min(255,Math.round(v))); return (v<16?'0':'')+v.toString(16); }).join(''); }
+function mixA(a,b,t){ a=toRgb(a); b=toRgb(b); return [0,1,2].map(function(i){ return Math.round(a[i]+(b[i]-a[i])*t); }); }
+function satOf(c){ var mx=Math.max(c[0],c[1],c[2]), mn=Math.min(c[0],c[1],c[2]); return mx?(mx-mn)/mx:0; }
+function lumOf(c){ return (c[0]*.3+c[1]*.59+c[2]*.11)/255; }
+function hashColor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; var hues=['#3d7bd9','#d9573d','#2aa37a','#8a4fd1','#d1a12f','#2b95b3','#c2407a']; return hues[Math.abs(h)%hues.length]; }
+function initials(t){ var w=String(t).replace(/[^A-Za-z0-9+ ]/g,' ').trim().split(/\s+/); return ((w[0]||'?').charAt(0)+(w.length>1?w[1].charAt(0):'')).toUpperCase(); }
+
+/* ---------- glyphs (24 px grid, stroked) ---------- */
+var G={
+ tv:'M3 5.5h18v11H3z M8.5 20.5h7 M12 16.5v4',
+ play:'M12 2.8a9.2 9.2 0 1 0 0 18.4a9.2 9.2 0 1 0 0-18.4z M10 8.4l5.6 3.6L10 15.6z',
+ globe:'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M3 12h18 M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z',
+ music:'M9 18.5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0z M20 16a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0z M9 18.5V6l11-2.5V16',
+ game:'M7 8h10a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-6.3 2.1L14 14.5h-4l-.7 1.1A3.5 3.5 0 0 1 3 13.5V12a4 4 0 0 1 4-4z M8 10.5v3 M6.5 12h3 M15.5 11.2h.01 M17.5 13h.01',
+ brew:'M6 4h9v13a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z M15 8h2.5a2.5 2.5 0 0 1 0 5H15 M9 8v4 M12 8v6',
+ photo:'M3.5 5h17v14h-17z M3.5 16l5-5l4 4l3-3l5 5 M15.5 9.2h.01',
+ film:'M4 4h16v16H4z M8 4v16 M16 4v16 M4 8h4 M4 12h4 M4 16h4 M16 8h4 M16 12h4 M16 16h4',
+ folder:'M3 6.5h6l2 2h10v10H3z',
+ radio:'M4 9h16v11H4z M7 9l10-5 M8.5 14.5h.01 M14 13h3 M14 16h3',
+ sliders:'M4 7h9 M17 7h3 M15 5v4 M4 17h3 M11 17h9 M9 15v4 M4 12h5 M13 12h7 M11 10v4',
+ book:'M4 5.5c3-1.5 5.5-1.5 8 .5c2.5-2 5-2 8-.5v13c-3-1.5-5.5-1.5-8 .5c-2.5-2-5-2-8-.5z M12 6v13',
+ hdmi:'M3 8h18v5l-2 3H5l-2-3z M7 11h10',
+ app:'M5 5h6v6H5z M13 5h6v6h-6z M5 13h6v6H5z M13 13h6v6h-6z',
+ light:'M9 17.5h6 M10 20.5h4 M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2v1.5h5V16c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z',
+ lamp:'M8 3h8l3 8H5z M12 11v8 M8 21h8',
+ fan:'M12 12a2 2 0 1 0 0 .01 M12 10c-1-3.5-.5-6.5 2-7c3 .5 2.5 4.5-2 7z M14 12.5c3.5-.5 6.5.8 6.6 3.3c-.8 2.9-4.6 1.8-6.6-3.3z M10.2 13.2c-2.6 2.4-5.6 3.1-7 1c-.3-3 3.6-3.6 7-1z',
+ moon:'M19.5 14.6A8 8 0 1 1 9.4 4.5a6.6 6.6 0 0 0 10.1 10.1z',
+ sun:'M12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z M12 2v2 M12 20v2 M2 12h2 M20 12h2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4',
+ power:'M12 3v8.5 M7 6.4a8 8 0 1 0 10 0',
+ thermostat:'M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0z M12 9v8',
+ blinds:'M4 3.5h16 M5 3.5v13 M19 3.5v13 M5 7.5h14 M5 11.5h14 M5 15.5h14 M12 16.5v4',
+ speaker:'M4 9.5h3.5L12 5.5v13l-4.5-4H4z M15.5 9a4.2 4.2 0 0 1 0 6 M18.2 6.4a8 8 0 0 1 0 11.2',
+ plug:'M9 3v5 M15 3v5 M6.5 8h11v3a5.5 5.5 0 0 1-11 0z M12 16.5V21',
+ scene:'M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z M18.5 14.5l.8 2.2l2.2.8l-2.2.8l-.8 2.2l-.8-2.2l-2.2-.8l2.2-.8z M5.5 15.5l.6 1.6l1.6.6l-1.6.6l-.6 1.6l-.6-1.6l-1.6-.6l1.6-.6z'
+};
+function svg(name){ return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(G[name]||G.app)+'"/></svg>'; }
+
+/* ---------- sample apps for the browser preview ---------- */
+var DEMO=[
+ ['livetv','Live TV','tv','#ff6a3d','#a3122e','Television','Channels from your antenna or cable box, with the guide one button away.'],
+ ['media','Media Player','play','#4b93ff','#262c9a','Video','Movies and music from USB drives and your home network.'],
+ ['browser','Web Browser','globe','#2ec4b6','#0a5675','Internet','A full browser for the sites that never made a TV app.'],
+ ['music','Music','music','#ff5fa2','#5e1a8f','Audio','Albums, playlists and radio, picked up where you left off.'],
+ ['games','Game Hub','game','#8bd450','#16704a','Games','Cloud games and controller-friendly titles.'],
+ ['homebrew','Homebrew Channel','brew','#ffb347','#a84a00','Homebrew','Installs and updates community apps on your rooted TV.'],
+ ['films','Film Library','film','#c084fc','#33196e','Video','Your movie collection, newest additions first.'],
+ ['photos','Photos','photo','#ffd166','#d4661a','Media','Slideshows from your phone, a USB drive or a network share.'],
+ ['reader','Reader','book','#f2c47e','#7a4a1e','Books','Magazines and comics, sized for the couch.'],
+ ['files','Files','folder','#7dd3fc','#1b4f80','Utilities','Browse USB storage and network folders.'],
+ ['radio','Internet Radio','radio','#fb7185','#6d1836','Audio','Thousands of live stations by genre and country.'],
+ ['settings','TV Settings','sliders','#a5b4c8','#2b3647','System','Picture, sound, network and system options.']
+];
+var DEMO_INPUTS=[['hdmi1','HDMI 1','PlayStation 5'],['hdmi2','HDMI 2','Apple TV'],['hdmi3','HDMI 3','Receiver']];
+var DEMO_FAV=['livetv','media','browser','music','games','homebrew'];
+var DEMO_HA={addr:'demo',title:'Living room',tiles:[{name:'Movie time',icon:'movie',webhook:'d1',description:'Dims the lights and closes the blinds.'},{name:'Lamp',icon:'lamp',webhook:'d2',description:'Toggles the floor lamp.'},{name:'Fan',icon:'fan',webhook:'d3',description:'Ceiling fan on or off.'},{name:'Goodnight',icon:'moon',webhook:'d4',description:'Everything off, doors locked.'}]};
+function demoApps(){
+  var list=DEMO.map(function(d){ return {id:d[0],title:d[1],glyph:d[2],c1:d[3],c2:d[4],category:d[5],desc:d[6],demo:true}; });
+  DEMO_INPUTS.forEach(function(d){ list.push({id:d[0],title:d[2],port:d[1],glyph:'hdmi',c1:'#5b6475',c2:'#1c212b',category:'Source',demo:true,input:true}); });
+  return list;
+}
+var HA_COLORS={light:['#ffd166','#5a4410'],lamp:['#ffb37a','#5a2f10'],fan:['#7ad7f0','#114a5a'],movie:['#c084fc','#33196e'],music:['#ff5fa2','#5e1a8f'],
+  moon:['#9fb4ff','#232a52'],sun:['#fcd34d','#7a4a08'],power:['#ff8a7a','#57201b'],thermostat:['#ff9f6b','#5a2a14'],blinds:['#a5b4c8','#2b3647'],
+  speaker:['#5ed1b8','#0f4a43'],plug:['#8bd450','#16502a'],scene:['#b9a3ff','#2f2368']};
+
+/* ---------- settings ---------- */
+var ACCENTS=[['auto','Auto'],['#f2c47e','Sunlit'],['#ff9b85','Coral'],['#ff9ec4','Rose'],['#c9a8ff','Lilac'],['#8cc8ff','Sky'],['#6fe0d0','Lagoon'],['#b5dc8f','Sage'],['#f4f1ea','Pearl']];
+var DEFAULTS={backdrop:'sky',tint:true,dim:20,wpEvery:'60',wpCredit:true,wpLast:null,
+  shape:'wide',size:'m',bigFav:true,radius:22,labels:'focus',focus:'glow',scale:108,accent:'auto',
+  greet:true,name:'',clock:'12',hints:true,weather:true,wxPlace:'',wxUnits:'f',
+  recentTab:true,scroll:'pinned',dock:true,haAddr:'',haDock:true,
+  quality:'full',speed:'normal',fps:false,
+  favorites:null,favSource:'',order:{},hidden:[],recent:[],used:{}};
+var S=Object.assign({},DEFAULTS,readJSON(K_SET)||{});
+function saveS(){ writeJSON(K_SET,S); }
+function valName(key){ var o=OPT_BY[key]; if(!o) return ''; var v=S[key], arr=o.values||o.swatch||[]; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) return arr[i][1]; return ''; }
+function isPhoto(){ return S.backdrop==='bing'||S.backdrop==='apod'||S.backdrop==='commons'; }
+/* the settings are pages: headers ({h, sum}) are listed first; OK opens one, Back returns */
+var OPTIONS=[
+ {h:'Backdrop',sum:function(){ return valName('backdrop'); }},
+ {key:'backdrop',label:'Backdrop',values:[['sky','Living sky'],['app','App colours'],['still','Still ink'],['bing','Bing photo of the day'],['apod','NASA picture of the day'],['commons','Landscapes']]},
+ {key:'tint',label:'Tint with the focused app',bool:1,when:function(){ return S.backdrop==='sky'; }},
+ {key:'_nextwp',label:'Next photo',action:1,when:isPhoto},
+ {key:'wpEvery',label:'Change photo every',values:[['15','15 minutes'],['60','Hour'],['1440','Day'],['0','Never']],when:isPhoto},
+ {key:'wpCredit',label:'Show photo credit',bool:1,when:isPhoto},
+ {key:'dim',label:'Dim',range:[0,70,5],fmt:function(v){ return v+'%'; }},
+ {h:'Cards',sum:function(){ return valName('shape')+'  ·  '+valName('size'); }},
+ {key:'shape',label:'Shape',values:[['wide','Wide'],['tile','Square'],['icon','Icon']]},
+ {key:'size',label:'Size',values:[['s','Small'],['m','Medium'],['l','Large']]},
+ {key:'bigFav',label:'Larger Favorites',bool:1},
+ {key:'radius',label:'Corner radius',range:[6,36,2],fmt:function(v){ return v+'px'; }},
+ {key:'labels',label:'App names',values:[['focus','On focus'],['always','Always'],['never','Hidden']]},
+ {h:'Focus & colour',sum:function(){ return valName('focus')+'  ·  '+valName('accent'); }},
+ {key:'focus',label:'Focus',values:[['glow','Lift + glow'],['ring','Lift + ring'],['lift','Lift']]},
+ {key:'scale',label:'Zoom',range:[100,116,1],fmt:function(v){ return v+'%'; }},
+ {key:'accent',label:'Accent',swatch:ACCENTS},
+ {h:'Greeting & clock',sum:function(){ return (S.greet?(S.name?'Hello, '+S.name:'Greeting on'):'Greeting off')+'  ·  '+valName('clock'); }},
+ {key:'greet',label:'Greeting',bool:1},
+ {key:'name',label:'Your name',text:1,ph:'Optional',when:function(){ return S.greet; }},
+ {key:'clock',label:'Clock',values:[['12','12-hour'],['24','24-hour'],['off','Off']]},
+ {key:'hints',label:'Remote hints',bool:1},
+ {h:'Weather',sum:function(){ return S.weather?(S.wxPlace||'Set a place'):'Off'; }},
+ {key:'weather',label:'Weather',bool:1},
+ {key:'wxPlace',label:'Place',text:1,ph:'City or ZIP code',when:function(){ return S.weather; }},
+ {key:'wxUnits',label:'Units',values:[['f','°F'],['c','°C']],when:function(){ return S.weather; }},
+ {h:'Shelf & dock',sum:function(){ return (S.recentTab?'Recent tab':'No Recent tab')+'  ·  '+(S.dock?'Dock on':'Dock off'); }},
+ {key:'recentTab',label:'Recent tab',bool:1},
+ {key:'scroll',label:'Scrolling',values:[['pinned','Focus stays left'],['edge','Scroll at the edge']]},
+ {key:'dock',label:'Sources & scenes dock',bool:1},
+ {h:'Apps',sum:function(){ var n=(S.favorites||[]).filter(function(id){ return APPS[id]; }).length; return n+' favorite'+(n===1?'':'s'); }},
+ {key:'_favs',label:'Choose favorites',action:1},
+ {key:'_refresh',label:'Reload apps and sources',action:1},
+ {key:'_hidden',label:'Hidden apps',action:1},
+ {key:'_recent',label:'Clear Recent',action:1},
+ {h:'Home Assistant',sum:function(){ return haStatusText(); }},
+ {key:'haAddr',label:'Address',text:1,ph:'192.168.1.20:8123'},
+ {key:'haDock',label:'Scenes in the dock',bool:1},
+ {key:'_haReload',label:'Reload scenes',action:1},
+ {h:'Performance',sum:function(){ return valName('quality')+'  ·  '+valName('speed'); }},
+ {key:'quality',label:'Effects',values:[['full','Full'],['lite','Lite']]},
+ {key:'speed',label:'Animation',values:[['fast','Brisk'],['normal','Calm'],['relaxed','Slow'],['off','Off']]},
+ {key:'fps',label:'Show frame rate',bool:1},
+ {h:'Advanced',sum:function(){ return 'Halcyon '+VERSION; }},
+ {key:'_debug',label:'Debug log',action:1},
+ {key:'_reset',label:'Reset all settings',action:1}
+];
+var OPT_BY={}; OPTIONS.forEach(function(o){ if(o.key) OPT_BY[o.key]=o; });
+
+/* ---------- debug log (0 or blue button) ---------- */
+var LOG=[];
+function pad2(n){ return (n<10?'0':'')+n; }
+function dlog(){
+  var parts=Array.prototype.slice.call(arguments).map(function(a){ if(typeof a==='object'){ try{ var s=JSON.stringify(a); return s.length>300?s.slice(0,300)+'…':s; }catch(e){ return String(a); } } return String(a); });
+  var d=new Date(), line=pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds())+'  '+parts.join(' ');
+  LOG.push(line); if(LOG.length>400) LOG.shift();
+  var el=$('debug'); if(el&&!el.hidden){ el.lastChild.textContent=LOG.join('\n'); el.scrollTop=el.scrollHeight; }
+  if(window.console&&console.log) console.log(line);
+}
+function toggleDebug(){ var el=$('debug'); el.hidden=!el.hidden; if(!el.hidden){ el.lastChild.textContent=LOG.join('\n'); el.scrollTop=el.scrollHeight; } }
+
+/* ---------- webOS service calls ----------
+   Normal apps are denied the app and input lists, so every query tries directly first and then as root
+   through the Homebrew Channel's exec service, reading luna-send's output. */
+var bridges=[];
+function luna(uri,params,cb){
+  if(!ON_TV) return false;
+  try{
+    var b=new window.PalmServiceBridge();
+    b.onservicecallback=function(msg){ var r=null; try{ r=JSON.parse(msg); }catch(e){ r={returnValue:false,errorText:'Bad reply'}; } if(cb) cb(r); };
+    b.call(uri,JSON.stringify(params||{}));
+    bridges.push(b); if(bridges.length>60) bridges.shift();
+  }catch(e){ if(cb) cb({returnValue:false,errorText:String(e&&e.message||e)}); }
+  return true;
+}
+function rootExec(cmd,cb){
+  return luna('luna://org.webosbrew.hbchannel.service/exec',{command:cmd},function(r){
+    if(!r||r.returnValue===false||r.error) cb(null,(r&&(r.errorText||r.error))||'no reply');
+    else cb(r,null);
+  });
+}
+function lunaQuery(uri,params,ok,cb){
+  var name=uri.split('/').pop();
+  luna(uri,params||{},function(r){
+    if(r&&r.returnValue!==false&&ok(r)){ dlog(name+': direct call OK'); return cb(r,null); }
+    var e1=(r&&r.errorText)||'refused';
+    dlog(name+': direct call failed ('+e1+'), trying root');
+    rootExec('luna-send -n 1 -w 8000 '+shq(uri)+' '+shq(JSON.stringify(params||{})),function(res,err){
+      if(err){ dlog(name+': root failed ('+err+')'); return cb(null,'direct: '+e1+'; root: '+err); }
+      var out=res.stdoutString||'', j=null;
+      try{ j=JSON.parse(out.slice(out.indexOf('{'))); }catch(e){}
+      if(j&&j.returnValue!==false&&ok(j)){ dlog(name+': root call OK'); return cb(j,null); }
+      var e2=(j&&j.errorText)||'unreadable reply';
+      dlog(name+': root call returned an error ('+e2+')',out.slice(0,200));
+      cb(null,'direct: '+e1+'; root: '+e2);
+    });
+  });
+}
+/* a Luna call that falls back to root; cb(ok, error) */
+function lunaDo(uri,params,cb){
+  luna(uri,params,function(res){
+    if(res&&res.returnValue!==false) return cb(true,null);
+    var e1=(res&&res.errorText)||'refused';
+    dlog(uri.split('/').pop()+' refused ('+e1+'), trying root');
+    rootExec('luna-send -n 1 -w 5000 '+shq(uri)+' '+shq(JSON.stringify(params||{})),function(out,err){
+      if(err) return cb(false,e1+'; root: '+err);
+      var t=out.stdoutString||'';
+      if(/"returnValue"\s*:\s*false/.test(t)){ var m=/"errorText"\s*:\s*"([^"]*)"/.exec(t); return cb(false,e1+'; root: '+(m?m[1]:'refused')); }
+      cb(true,null);
+    });
+  });
+}
+/* GET text: directly (CORS) first, then through the TV's root shell with curl or wget */
+var UA='Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0 Safari/537.36 Halcyon/'+VERSION;
+function getText(url,cb){
+  var done=false, fin=function(t,e){ if(done) return; done=true; cb(t,e); };
+  var viaRoot=function(why){
+    if(!ON_TV) return fin(null,why);
+    rootExec('curl -sL --max-time 20 -A '+shq(UA)+' '+shq(url)+' 2>/dev/null || wget -qO- -T 20 -U '+shq(UA)+' '+shq(url),function(res,err){
+      if(err||!res||!res.stdoutString) return fin(null,why+'; root: '+(err||'empty reply'));
+      fin(res.stdoutString,null);
+    });
+  };
+  try{
+    var x=new XMLHttpRequest(); x.open('GET',url,true); x.timeout=12000;
+    x.onload=function(){ if(x.status>=200&&x.status<300&&x.responseText) fin(x.responseText,null); else viaRoot('HTTP '+x.status); };
+    x.onerror=function(){ viaRoot('blocked or offline'); };
+    x.ontimeout=function(){ viaRoot('timeout'); };
+    x.send();
+  }catch(e){ viaRoot(String(e&&e.message||e)); }
+}
+function getJSON(url,cb){ getText(url,function(t,e){ if(!t) return cb(null,e); var j=null; try{ j=JSON.parse(t); }catch(x){ return cb(null,'unreadable reply'); } cb(j,null); }); }
+function fileUrl(p,folder){
+  if(!p) return '';
+  if(/^[a-z]+:/i.test(p)) return p;
+  if(p.charAt(0)!=='/'&&folder) p=folder.replace(/\/$/,'')+'/'+p;
+  return 'file://'+(p.charAt(0)==='/'?'':'/')+p;
+}
+function safeId(id){ return /^[A-Za-z0-9._-]+$/.test(id)?id:null; }
+
+/* ---------- app model ---------- */
+var APPS={}, ALL=[], INPUTS=[], HA_IDS=[], SOURCE='none', TABS=[], DOCK=[];
+var EXCLUDE={'org.webosbrew.halcyon':1};
+var DEFAULT_HIDDEN=['works.partridge.webos-launcher','com.spocky.projengmenu','org.webosbrew.lumen'];
+var INPUT_RE=/^com\.webos\.app\.(hdmi\d|externalinput\..*|livetv\.hdmi.*)$/;
+function isHidden(id){ return (S.hidden||[]).indexOf(id)>-1; }
+function setApps(list,source){
+  APPS={}; ALL=[]; INPUTS=[]; SOURCE=source;
+  if(source==='tv'&&!S.hiddenInit){ S.hidden=(S.hidden||[]).concat(DEFAULT_HIDDEN.filter(function(x){ return (S.hidden||[]).indexOf(x)<0; })); S.hiddenInit=true; saveS(); }
+  list.forEach(function(a){ APPS[a.id]=a; (a.input?INPUTS:ALL).push(a.id); });
+  haMerge();
+  if(S.favSource!==source||!S.favorites){
+    S.favorites=source==='demo'?DEMO_FAV.slice():ALL.filter(function(id){ return !APPS[id].system&&!isHidden(id); }).slice(0,7);
+    S.favSource=source; saveS();
+  }
+}
+function orderedAll(){
+  var ord=(S.order&&S.order[SOURCE])||[], out=[];
+  ord.forEach(function(id){ if(APPS[id]&&!APPS[id].input&&out.indexOf(id)<0) out.push(id); });
+  ALL.forEach(function(id){ if(out.indexOf(id)<0) out.push(id); });
+  return out;
+}
+function buildModel(){
+  TABS=[];
+  var fav=(S.favorites||[]).filter(function(id){ return APPS[id]&&!isHidden(id); });
+  if(fav.length) TABS.push({key:'fav',title:'Favorites',ids:fav});
+  var rec=(S.recent||[]).filter(function(id){ return APPS[id]&&!isHidden(id); });
+  if(S.recentTab&&rec.length) TABS.push({key:'recent',title:'Recent',ids:rec});
+  var all=orderedAll().filter(function(id){ return !isHidden(id); });
+  if(all.length) TABS.push({key:'all',title:'All apps',ids:all});
+  DOCK=[];
+  if(S.dock){
+    INPUTS.forEach(function(id){ DOCK.push(id); });
+    if(S.haDock) HA_IDS.forEach(function(id){ DOCK.push(id); });
+  }
+}
+
+/* ---------- card look ---------- */
+function palette(a){
+  if(!a) return {edge:[20,24,32],accent:[60,70,90]};
+  if(a.demo||a.ha) return {edge:toRgb(a.c2),accent:toRgb(a.c1)};
+  var p=COLORS[a.id]; if(p) return p;
+  var c=a.color||hashColor(a.id); return {edge:mixA(c,[0,0,0],.45),accent:toRgb(c)};
+}
+function faceBg(a){
+  var p=!a.demo&&!a.ha&&COLORS[a.id];
+  if(p){
+    if(p.mode==='seam') return rgbS(p.edge);
+    return 'linear-gradient(140deg,'+rgbS(mixA(p.accent,[255,255,255],.06))+','+rgbS(mixA(p.accent,[6,8,12],.6))+')';
+  }
+  if(a.demo||a.ha) return 'radial-gradient(ellipse at 28% 18%,'+rgbS(mixA(a.c1,[255,255,255],.2))+' 0,rgba(255,255,255,0) 58%),linear-gradient(140deg,'+a.c1+','+a.c2+')';
+  var c=a.color||hashColor(a.id);
+  return 'linear-gradient(140deg,'+c+','+rgbS(mixA(c,[0,0,0],.45))+')';
+}
+function artHtml(a){
+  if(a.input) return svg(a.glyph||'hdmi')+'<div class="nm-t">'+esc(a.title)+'</div>';
+  if(a.demo) return svg(a.glyph);
+  if(ICONS[a.id]) return '<img src="'+esc(ICONS[a.id])+'" alt="">';
+  return '<span class="mono">'+esc(initials(a.title))+'</span>';
+}
+function labelText(a){ return a.input&&a.port?a.port:a.title; }
+var SIZES={wide:{s:[300,169],m:[360,203],l:[440,248]},tile:{s:[190,190],m:[230,230],l:[280,280]},icon:{s:[150,150],m:[176,176],l:[210,210]}};
+var STEPS=['s','m','l'], GAP=36;
+function dims(key){
+  var i=STEPS.indexOf(S.size); if(i<0) i=1;
+  if(key==='fav'&&S.bigFav) i=Math.min(2,i+1);
+  return SIZES[S.shape][STEPS[i]];
+}
+
+/* ---------- focus state ----------
+   zones: shelf (cards), tabs, dock, top (the two buttons), menu, settings */
+var F={zone:'shelf',tab:'fav',cols:{},dock:0,top:1,mIdx:0,sIdx:0,page:-1,lastPage:-1,moving:null};
+var cardEls=[], tabEls=[], tabGeo=[], pillEls=[], focusedCard=null, CW=0, CH=0, TX=0;
+function curTab(){ for(var i=0;i<TABS.length;i++) if(TABS[i].key===F.tab) return TABS[i]; return TABS[0]||null; }
+function tabIndex(){ var t=curTab(); return t?TABS.indexOf(t):0; }
+function col(){ var t=curTab(); return t?Math.max(0,Math.min(F.cols[t.key]||0,t.ids.length-1)):0; }
+
+/* whole-screen render: tabs, the open tab's cards, the dock. Measured once here, never while moving. */
+function render(){
+  buildModel();
+  var t=curTab(); if(t) F.tab=t.key;
+  /* an empty shelf (apps still loading) parks the focus elsewhere; it comes back once there are apps */
+  if(F.zone==='shelf'&&!t){ F.zone=DOCK.length?'dock':'top'; F.parked=true; }
+  else if(t&&F.parked){ if(F.zone==='dock'||F.zone==='top') F.zone='shelf'; F.parked=false; }
+  renderTabs(); renderTrack(); renderDock(); layout();
+  applyFocus(true);
+}
+function renderTabs(){
+  var h='<div id="tabpill"></div><div id="tabbar"></div>';
+  TABS.forEach(function(t){ h+='<div class="tab">'+esc(t.title)+'<span class="n">'+t.ids.length+'</span></div>'; });
+  $('tabs').innerHTML=h;
+  tabEls=Array.prototype.slice.call($('tabs').querySelectorAll('.tab'));
+  tabGeo=tabEls.map(function(el){ return [el.offsetLeft,el.offsetWidth]; });
+}
+function renderTrack(){
+  var t=curTab(), host=$('track');
+  focusedCard=null;
+  if(!t){ host.innerHTML='<div class="empty">'+(SOURCE==='none'?'Reading your apps…':'Nothing here yet.')+'</div>'; cardEls=[]; CW=0; CH=200; return; }
+  var d=dims(t.key); CW=d[0]; CH=d[1];
+  var h='';
+  t.ids.forEach(function(id,ci){
+    var a=APPS[id], mode=ICONS[id]&&!a.input?' '+iconMode(id):'';
+    h+='<div class="card" style="width:'+CW+'px" data-c="'+ci+'"><div class="lift"><div class="halo"></div><div class="ring"></div>'+
+       '<div class="face" style="height:'+CH+'px;background:'+faceBg(a)+'"><div class="art'+(a.input?' nm':'')+mode+'" data-id="'+esc(id)+'">'+artHtml(a)+'</div></div></div>'+
+       '<div class="nudge"><span>&#8249;</span><span>&#8250;</span></div><div class="label">'+esc(labelText(a))+'</div></div>';
+  });
+  host.innerHTML='<div id="glow" style="width:'+Math.round(CW*1.28)+'px;height:'+Math.round(CH*1.52)+'px"></div>'+h;
+  host.style.setProperty('--h',CH+'px');
+  cardEls=host.querySelectorAll('.card');
+  TX=null;
+}
+function dockItem(a){
+  if(a.ha) return '<div class="pill'+(haOk[a.id]?' ok':'')+'">'+svg(a.glyph)+esc(a.title)+'</div>';
+  return '<div class="pill">'+svg('hdmi')+esc(a.title)+'</div>';
+}
+function renderDock(){
+  var h='';
+  if(DOCK.length){
+    var ins=DOCK.filter(function(id){ return APPS[id].input; }), has=DOCK.filter(function(id){ return APPS[id].ha; });
+    if(ins.length){ h+='<span class="dsec">Sources</span>'; ins.forEach(function(id){ h+=dockItem(APPS[id]); }); }
+    if(has.length){ if(ins.length) h+='<span class="dsep"></span>'; h+='<span class="dsec">'+esc(HA.title||'Scenes')+'</span>'; has.forEach(function(id){ h+=dockItem(APPS[id]); }); }
+    DOCK=ins.concat(has);
+  }
+  $('dock').innerHTML=h;
+  $('dock').style.display=DOCK.length?'':'none';
+  pillEls=Array.prototype.slice.call($('dock').querySelectorAll('.pill'));
+  if(F.dock>=DOCK.length) F.dock=Math.max(0,DOCK.length-1);
+}
+/* vertical rhythm, bottom up: dock, card track with its labels, tabs, then the hero above them */
+function layout(){
+  var dockTop=DOCK.length?1080-60-64:1080;
+  var trackTop=(DOCK.length?dockTop-56:1080-84)-60-CH;
+  var tabsTop=trackTop-80;
+  $('dock').style.top=dockTop+'px';
+  /* the clip window leaves room above for the lift and the glow, below for the glow and the label */
+  $('trackWrap').style.top=(trackTop-80)+'px';
+  $('trackWrap').style.height=Math.round(CH+Math.max(96,CH*.36))+'px';
+  $('tabs').style.top=tabsTop+'px';
+  $('hints').style.top=(tabsTop+2)+'px';
+  $('hero').style.bottom=(1080-tabsTop+44)+'px';
+}
+
+function applyFocus(force){
+  var z=F.zone, t=curTab();
+  stage.classList.toggle('z-top',z==='top');
+  stage.classList.toggle('z-tabs',z==='tabs');
+  stage.classList.toggle('z-shelf',z==='shelf'||z==='menu');
+  $('tvset').classList.toggle('focus',z==='top'&&F.top===0);
+  $('gear').classList.toggle('focus',z==='top'&&F.top===1);
+  /* cards */
+  var c=col(), card=cardEls[c];
+  if(focusedCard&&(focusedCard!==card||(z!=='shelf'&&z!=='menu'))){ focusedCard.classList.remove('focus'); focusedCard.classList.remove('moving'); focusedCard=null; }
+  if(card&&(z==='shelf'||z==='menu')){ card.classList.add('focus'); card.classList.toggle('moving',!!F.moving); focusedCard=card; }
+  if(t&&card){
+    F.cols[t.key]=c;
+    var pos=c*(CW+GAP), tx=TX===null?0:TX, view=1920-120-96;
+    if(S.scroll==='pinned') tx=-pos;
+    else { if(pos+tx<0) tx=-pos; else if(pos+CW+tx>view) tx=-(pos+CW-view); }
+    if(tx!==TX||force){ TX=tx; $('track').style.transform='translate3d('+tx+'px,0,0)'; }
+    var gl=$('glow'); if(gl) gl.style.transform='translate3d('+Math.round(pos-CW*.14)+'px,'+Math.round(-CH*.2)+'px,0)';
+  }
+  /* tabs: underline under the open tab, pill behind the focused one */
+  var ti=tabIndex(), g=tabGeo[ti];
+  tabEls.forEach(function(el,i){ el.classList.toggle('on',i===ti); el.classList.toggle('focus',z==='tabs'&&i===ti); });
+  if(g){
+    $('tabbar').style.transform='translate3d('+g[0]+'px,0,0) scale('+(g[1]/100)+',1)';
+    $('tabpill').style.transform='translate3d('+g[0]+'px,0,0) scale('+((g[1]+40)/100)+',1)';
+  }
+  /* dock */
+  pillEls.forEach(function(el,i){ el.classList.toggle('focus',z==='dock'&&i===F.dock); });
+  updateHero(force);
+}
+
+/* ---------- hero ---------- */
+var heroKey=null, heroT=null, heroFlip=false, lastNav=0, bdTimer=null, focusApp=null;
+var TOP_HERO=[['LG webOS','TV settings','Picture, sound, network and everything else in LG’s own settings menu.'],
+              ['Halcyon '+VERSION,'Halcyon settings','The sky, cards, greeting, weather, favorites and Home Assistant scenes.']];
+var TAB_DESC={fav:'The apps you keep close. Hold OK on any app to add or remove it.',
+  recent:'What you’ve opened lately, newest first.',
+  all:'Every app on this TV. Hold OK to move or hide one.'};
+function heroFor(){
+  var z=F.zone, t=curTab();
+  if(z==='top'){ var h=TOP_HERO[F.top]; return {key:'top'+F.top,eyebrow:h[0],title:h[1],desc:h[2],app:null}; }
+  if(z==='tabs'&&t) return {key:'tab'+t.key,eyebrow:'Shelf',title:t.title,desc:TAB_DESC[t.key]+'',app:null};
+  var a=null;
+  if(z==='dock') a=APPS[DOCK[F.dock]];
+  else if(t) a=APPS[t.ids[col()]];
+  if(!a) return {key:'empty'+SOURCE,eyebrow:'Halcyon',title:SOURCE==='none'?'Reading your apps…':'No apps to show',desc:SOURCE==='none'?'Asking the TV for its app list.':'Unhide apps in settings, or reload the app list.',app:null};
+  return {key:'app'+a.id,eyebrow:eyebrowFor(a),title:a.title,desc:descFor(a),app:a};
+}
+function eyebrowFor(a){
+  if(a.ha) return (HA.title||'Home Assistant')+'  ·  Scene';
+  if(a.input) return 'Source'+(a.port&&a.port!==a.title?'  ·  '+a.port:'');
+  var fav=(S.favorites||[]).indexOf(a.id)>-1;
+  return (a.category||(a.system?'System':'App'))+(fav?'  ·  Favorite':'');
+}
+/* LG gives no descriptions, so Halcyon says when you last used the app instead */
+function descFor(a){
+  if(a.ha) return esc(a.desc||'Press OK to run it.');
+  if(a.desc) return esc(a.desc);
+  if(a.input) return 'Press OK to switch to '+esc(a.title)+'.';
+  var u=S.used&&S.used[a.id];
+  if(!u) return 'Not opened from Halcyon yet.';
+  return 'Last opened '+whenText(u[0])+(u[1]>1?'  ·  '+u[1]+' times':'')+'.';
+}
+function whenText(ts){
+  var d=new Date(ts), n=new Date(), days=Math.round((new Date(n.getFullYear(),n.getMonth(),n.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
+  var mins=Math.round((n-d)/60000);
+  if(mins<2) return 'just now';
+  if(mins<60) return mins+' minutes ago';
+  if(days===0) return 'today at '+clockText(d,true);
+  if(days===1) return 'yesterday at '+clockText(d,true);
+  if(days<7) return 'on '+DAYS[d.getDay()];
+  return 'on '+MONTHS[d.getMonth()]+' '+d.getDate();
+}
+function updateHero(force){
+  var h=heroFor();
+  if(h.key===heroKey&&!force) return;
+  heroKey=h.key; focusApp=h.app;
+  var rapid=now()-lastNav<180;
+  clearTimeout(heroT);
+  /* while an arrow is held the 100 px title waits until the focus settles */
+  if(rapid&&!force) heroT=setTimeout(function(){ showHero(heroFor(),true); },170);
+  else showHero(h,!force);
+  clearTimeout(bdTimer);
+  bdTimer=setTimeout(function(){ paintBackdrop(); },force?0:(rapid?320:200));
+}
+function showHero(h,animate){
+  $('eyebrow').textContent=h.eyebrow; $('title').textContent=h.title; $('desc').innerHTML=h.desc;
+  if(h.app) updateAutoAccent(h.app);
+  var el=$('hero');
+  if(S.speed==='off'||!animate) el.className='';
+  else { heroFlip=!heroFlip; el.className=heroFlip?'swapA':'swapB'; }
+}
+
+/* ---------- accent ----------
+   Auto follows the focused app's own colour, lifted until it reads on the dark sky; greys fall back to Sunlit. */
+var autoAccent=null, curAccent=null;
+function setAccent(hex){
+  if(hex===curAccent) return; curAccent=hex;
+  var c=hexRgb(hex), st=stage.style;
+  st.setProperty('--accent',hex);
+  st.setProperty('--accent-soft','rgba('+c.join(',')+',.5)');
+  st.setProperty('--accent-faint','rgba('+c.join(',')+',.16)');
+}
+function readableAccent(rgb){
+  var r=rgb[0]/255,g=rgb[1]/255,b=rgb[2]/255, mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2, d=mx-mn, h=0, sat=0;
+  if(d){ sat=d/(1-Math.abs(2*l-1)); h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; if(h<0) h+=360; }
+  if(sat<.14) return '#f2c47e';
+  sat=Math.max(.5,Math.min(.88,sat)); l=Math.max(.68,Math.min(.78,l));
+  var C=(1-Math.abs(2*l-1))*sat, X=C*(1-Math.abs((h/60)%2-1)), m=l-C/2, o;
+  o=h<60?[C,X,0]:h<120?[X,C,0]:h<180?[0,C,X]:h<240?[0,X,C]:h<300?[X,0,C]:[C,0,X];
+  return rgbHex(o.map(function(v){ return (v+m)*255; }));
+}
+function updateAutoAccent(a){
+  if(S.accent!=='auto'||!a) return;
+  autoAccent=readableAccent(toRgb(palette(a).accent));
+  setAccent(autoAccent);
+}
+
+/* ---------- the sky ----------
+   A gradient that follows the real time of day: night, dawn, day, golden hour, dusk. Sunrise and sunset come
+   from the weather lookup when a place is set. Painted into a small canvas after the focus settles and
+   cross-faded by the compositor; never repainted per step. */
+/* c: top, middle, horizon; glow: the sun (or moon) light, its strength and where it sits in the sky */
+var SKY={
+ night:{c:['#04060d','#0a1029','#161b3c'],glow:['#3a44a0',.32],at:[.86,.14,.42],stars:1},
+ dawn:{c:['#15193d','#4a3f72','#d98b78'],glow:['#ffb08a',.62],at:[.86,.56,.62],stars:.25},
+ day:{c:['#0a2246','#1b4b7c','#5a8fba'],glow:['#d6ebff',.28],at:[.74,.02,.6],stars:0},
+ golden:{c:['#1a1d44','#694467','#e3935a'],glow:['#ffbe6a',.72],at:[.9,.5,.66],stars:0},
+ dusk:{c:['#0c0f2e','#3a2a5a','#b05e58'],glow:['#ff7f6a',.52],at:[.92,.62,.6],stars:.5}
+};
+function minutesOf(s,fallback){ var m=/T(\d\d):(\d\d)/.exec(s||''); return m?(+m[1])*60+(+m[2]):fallback; }
+function skyNow(){
+  var d=new Date(), t=d.getHours()*60+d.getMinutes();
+  var rise=minutesOf(WX.sunrise,405), set=minutesOf(WX.sunset,1095);
+  var keys=[[rise-100,'night'],[rise-10,'dawn'],[rise+80,'day'],[set-110,'day'],[set-35,'golden'],[set+15,'dusk'],[set+75,'night']];
+  /* find the two keyframes around now, wrapping over midnight */
+  var prev=keys[keys.length-1], next=keys[0], pt=prev[0]-1440, nt=next[0];
+  for(var i=0;i<keys.length;i++){
+    if(keys[i][0]<=t){ prev=keys[i]; pt=keys[i][0]; next=keys[(i+1)%keys.length]; nt=next[0]+(i+1===keys.length?1440:0); }
+  }
+  var f=nt>pt?Math.max(0,Math.min(1,(t-pt)/(nt-pt))):0;
+  f=f*f*(3-2*f);
+  var A=SKY[prev[1]], B=SKY[next[1]];
+  var lerp=function(a,b){ return a+(b-a)*f; };
+  return {c:[0,1,2].map(function(i){ return mixA(A.c[i],B.c[i],f); }),glow:mixA(A.glow[0],B.glow[0],f),ga:lerp(A.glow[1],B.glow[1]),
+    at:[0,1,2].map(function(i){ return lerp(A.at[i],B.at[i]); }),stars:lerp(A.stars,B.stars),phase:f<.5?prev[1]:next[1]};
+}
+var STARS=null;
+function starField(){
+  if(STARS) return STARS;
+  var seed=7, rnd=function(){ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  STARS=[]; for(var i=0;i<170;i++) STARS.push([rnd(),Math.pow(rnd(),1.6)*.66,.4+rnd()*.9,.35+rnd()*.65]);
+  return STARS;
+}
+function blob(x,W,H,cx,cy,r,c,a){
+  var g=x.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,r*W);
+  g.addColorStop(0,rgbS(c,a)); g.addColorStop(.5,rgbS(c,a*.42)); g.addColorStop(1,rgbS(c,0));
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+}
+/* the sky itself (gradient, stars, sun) only changes every few minutes, so it is drawn once per slot into a
+   cached canvas; moving the focus then costs one drawImage plus the app's tint */
+var skyCache={key:'',cv:null,s:null};
+function skyBase(W,H,slot){
+  var key=slot+'|'+W;
+  if(skyCache.key===key) return skyCache;
+  var cv=skyCache.cv||document.createElement('canvas'); cv.width=W; cv.height=H;
+  var x=cv.getContext('2d'), s=skyNow(), g=x.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,rgbS(s.c[0])); g.addColorStop(.58,rgbS(s.c[1])); g.addColorStop(1,rgbS(s.c[2]));
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  if(s.stars>.02){
+    starField().forEach(function(p){ x.fillStyle='rgba(255,250,240,'+(p[3]*s.stars*.85)+')'; x.beginPath(); x.arc(p[0]*W,p[1]*H,p[2]*W/960,0,6.2832); x.fill(); });
+  }
+  blob(x,W,H,s.at[0],s.at[1],s.at[2],s.glow,s.ga);
+  skyCache={key:key,cv:cv,s:s};
+  return skyCache;
+}
+function paintSky(x,W,H,app,slot){
+  var b=skyBase(W,H,slot);
+  x.drawImage(b.cv,0,0);
+  /* the focused app tints the sky a little; the time of day stays the main colour */
+  if(S.tint&&app){ var p=palette(app), c=satOf(p.accent)>.2?p.accent:p.edge; blob(x,W,H,.66,.24,.42,c,.24); }
+  return b.s;
+}
+function paintField(x,W,H,p){
+  var e=toRgb(p.edge), ac=toRgb(p.accent);
+  var h1=satOf(ac)>.22?ac:(satOf(e)>.22?e:ac);
+  if(lumOf(h1)>.82) h1=mixA(h1,[40,48,64],.45);
+  var h2=(satOf(e)>.22&&lumOf(e)>.07&&lumOf(e)<.85)?e:mixA(h1,[18,22,30],.55);
+  x.fillStyle=rgbS(mixA(h2,[5,7,11],.8)); x.fillRect(0,0,W,H);
+  blob(x,W,H,.8,.28,.72,h1,1); blob(x,W,H,1.02,.95,.6,h2,.6); blob(x,W,H,.52,-.12,.48,mixA(h1,[255,255,255],.22),.32);
+}
+function paintStill(x,W,H){
+  var g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'#141824'); g.addColorStop(1,'#07080d'); x.fillStyle=g; x.fillRect(0,0,W,H);
+  blob(x,W,H,.85,.15,.6,[52,58,84],.8);
+}
+/* left and bottom stay dark so the type always reads */
+function shadeLayer(x,W,H){
+  var g=x.createLinearGradient(0,0,W,0); g.addColorStop(0,'rgba(5,7,13,.72)'); g.addColorStop(.42,'rgba(5,7,13,.28)'); g.addColorStop(.72,'rgba(5,7,13,0)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  g=x.createLinearGradient(0,H,0,0); g.addColorStop(0,'rgba(5,7,13,.9)'); g.addColorStop(.38,'rgba(5,7,13,.5)'); g.addColorStop(.66,'rgba(5,7,13,0)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+}
+var NOISE=null;
+function noise(x){
+  if(!NOISE){
+    NOISE=document.createElement('canvas'); NOISE.width=NOISE.height=256;
+    var c=NOISE.getContext('2d'), d=c.createImageData(256,256);
+    for(var i=0;i<d.data.length;i+=4){ var v=Math.random()<.5?0:255; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=Math.round(Math.random()*2.4); }
+    c.putImageData(d,0,0);
+  }
+  return x.createPattern(NOISE,'repeat');
+}
+/* dim + legibility shade + grain: the same on every paint, so drawn once per size and dim level */
+var overCache={key:'',cv:null};
+function overlay(W,H){
+  var key=W+'|'+S.dim;
+  if(overCache.key===key) return overCache.cv;
+  var cv=overCache.cv||document.createElement('canvas'); cv.width=W; cv.height=H;
+  var x=cv.getContext('2d');
+  if(S.dim){ x.fillStyle='rgba(0,0,0,'+(S.dim/100)+')'; x.fillRect(0,0,W,H); }
+  shadeLayer(x,W,H);
+  if(W>=960){ x.fillStyle=noise(x); x.fillRect(0,0,W,H); }   /* grain only at 960: at 480 it shows as a grid */
+  overCache={key:key,cv:cv};
+  return cv;
+}
+var bdA=$('bdA'), bdB=$('bdB'), nextCv=bdA, bdKey=null, skyPhase='';
+function paintBackdrop(){
+  if(isPhoto()&&WP.on) return;
+  var a=focusApp||null, mode=S.backdrop;
+  if(isPhoto()) mode='sky';                          /* until the first photo arrives */
+  var slot=Math.floor(Date.now()/300000);            /* the sky moves on every five minutes */
+  var key=mode+'|'+(mode==='app'||(mode==='sky'&&S.tint)?(a?a.id+(COLORS[a.id]?'p':''):'-'):'')+'|'+(mode==='sky'?slot:'')+'|'+S.dim+'|'+S.quality;
+  if(key===bdKey) return; bdKey=key;
+  var W=S.quality==='lite'?480:960, H=W*9/16, cv=nextCv;
+  if(cv.width!==W){ cv.width=W; cv.height=H; }
+  var x=cv.getContext('2d');
+  x.save();
+  if(mode==='app') paintField(x,W,H,palette(a));
+  else if(mode==='still') paintStill(x,W,H);
+  else skyPhase=paintSky(x,W,H,a,slot).phase;
+  x.drawImage(overlay(W,H),0,0);
+  x.restore();
+  var off=cv===bdA?bdB:bdA;
+  cv.style.transitionDuration=(S.quality==='lite'||S.speed==='off')?'0s':'';
+  cv.classList.add('on'); off.classList.remove('on'); nextCv=off;
+}
+setInterval(function(){ if(!document.hidden&&S.backdrop==='sky') paintBackdrop(); },60000);
+
+/* ---------- photo backdrops: Bing, NASA APOD, Wikimedia Commons featured landscapes ---------- */
+var WP={list:null,key:'',i:0,shownAt:0,cur:null,busy:false,flip:false,on:false};
+function wpKey(){ return 'halcyon.wp.'+S.backdrop; }
+function stripTags(s){ var d=document.createElement('div'); d.innerHTML=String(s||''); return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+function wpFetch(cb){
+  var s=S.backdrop;
+  if(s==='bing'){
+    getJSON('https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=en-US',function(j,e){
+      if(!j||!j.images) return cb(null,e);
+      cb(j.images.filter(function(im){ return im.urlbase; }).map(function(im){
+        var cr=String(im.copyright||''), m=/^(.*?)\s*\((©.*)\)\s*$/.exec(cr);
+        return {url:'https://www.bing.com'+im.urlbase+'_UHD.jpg',title:im.title||(m?m[1]:cr),by:m?m[2]:'',src:'Bing'};
+      }),null);
+    });
+  } else if(s==='apod'){
+    getJSON('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&count=30',function(j,e){
+      if(!j||!j.length) return cb(null,e||(j&&j.msg)||'no reply');
+      cb(j.filter(function(a){ return a.media_type==='image'&&(a.hdurl||a.url); }).map(function(a){
+        return {url:a.hdurl||a.url,title:a.title||'Astronomy Picture of the Day',by:a.copyright?'© '+String(a.copyright).replace(/\s+/g,' ').trim():'NASA',src:'NASA',check:1};
+      }),null);
+    });
+  } else {
+    var base='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=50'+
+      '&prop=imageinfo&iiprop=url%7Csize%7Cextmetadata&iiextmetadatafilter=ObjectName%7CArtist&iiurlwidth=2560'+
+      '&gsrsearch='+encodeURIComponent('incategory:Featured_pictures_of_landscapes filetype:bitmap filew:>1900');
+    var parse=function(j){
+      var out=[], pages=(j&&j.query&&j.query.pages)||{};
+      Object.keys(pages).forEach(function(k){
+        var p=pages[k], ii=p.imageinfo&&p.imageinfo[0]; if(!ii||!ii.width||!ii.height) return;
+        var r=ii.width/ii.height; if(r<1.3||r>2.7||ii.width<1900) return;
+        var m=ii.extmetadata||{};
+        out.push({url:ii.thumburl||ii.url,title:stripTags(m.ObjectName&&m.ObjectName.value)||String(p.title||'').replace(/^File:/,'').replace(/\.[a-z0-9]+$/i,'').replace(/_/g,' '),by:stripTags(m.Artist&&m.Artist.value),src:'Wikimedia Commons'});
+      });
+      return out;
+    };
+    getJSON(base+'&gsrsort=random',function(j,e){
+      if(j&&!j.error) return cb(parse(j),null);
+      getJSON(base,function(j2,e2){ if(j2&&!j2.error) cb(parse(j2),null); else cb(null,e2||e); });
+    });
+  }
+}
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function wpList(cb){
+  var key=wpKey();
+  if(WP.list&&WP.key===key&&WP.list.length) return cb(true);
+  var c=readJSON(key);
+  if(c&&c.items&&c.items.length&&Date.now()-c.t<(S.backdrop==='commons'?24:6)*3600e3){ WP.list=c.items; WP.key=key; WP.i=c.i||0; return cb(true); }
+  dlog('wallpaper: loading '+S.backdrop);
+  wpFetch(function(list,err){
+    if(wpKey()!==key) return cb(false);
+    if(!list||!list.length){ dlog('wallpaper: '+S.backdrop+' failed ('+err+')'); toast('Couldn’t load photos. Showing the sky.'); return cb(false); }
+    if(S.backdrop!=='bing') shuffle(list);
+    WP.list=list; WP.key=key; WP.i=0; writeJSON(key,{t:Date.now(),items:list.slice(0,100),i:0});
+    dlog('wallpaper: '+list.length+' photos from '+S.backdrop);
+    cb(true);
+  });
+}
+function wpNext(){
+  if(!isPhoto()||WP.busy) return;
+  WP.busy=true;
+  wpList(function(ok){
+    if(!ok){ WP.busy=false; wpOff(); return; }
+    var tries=0, key=WP.key;
+    var attempt=function(){
+      if(wpKey()!==key||tries++>=8){ WP.busy=false; return; }
+      var it=WP.list[WP.i%WP.list.length]; WP.i=(WP.i+1)%WP.list.length;
+      writeJSON(key,{t:(readJSON(key)||{}).t||Date.now(),items:WP.list,i:WP.i});
+      var im=new Image();
+      im.onload=function(){
+        var r=im.naturalWidth/im.naturalHeight;
+        if(it.check&&(im.naturalWidth<1600||r<1.25||r>2.8)){ dlog('wallpaper: skipped a photo that isn’t wide'); return attempt(); }
+        var show=function(){ WP.busy=false; wpShow(it); };
+        if(im.decode) im.decode().then(show,show); else show();
+      };
+      im.onerror=function(){ dlog('wallpaper: image failed',it.url); attempt(); };
+      im.src=it.url;
+    };
+    attempt();
+  });
+}
+function wpShow(it){
+  WP.cur=it; WP.shownAt=Date.now(); WP.on=true;
+  S.wpLast={url:it.url,title:it.title,by:it.by,src:it.src,mode:S.backdrop}; saveS();
+  WP.flip=!WP.flip;
+  var on=$(WP.flip?'phA':'phB'), off=$(WP.flip?'phB':'phA');
+  on.style.backgroundImage='url("'+it.url.replace(/"/g,'%22')+'")';
+  stage.classList.add('photo'); on.classList.add('on'); off.classList.remove('on');
+  wpCredit();
+}
+function wpCredit(){
+  var c=$('credit'), it=WP.cur;
+  if(!it||!WP.on||!S.wpCredit||!isPhoto()){ c.hidden=true; return; }
+  c.innerHTML='<b></b><span></span>';
+  c.firstChild.textContent=it.title||''; c.lastChild.textContent=(it.by?it.by+'  ·  ':'')+it.src;
+  c.hidden=false;
+}
+function wpOff(){ WP.on=false; stage.classList.remove('photo'); $('phA').classList.remove('on'); $('phB').classList.remove('on'); $('credit').hidden=true; bdKey=null; paintBackdrop(); }
+function wpApply(){
+  $('phShade').style.backgroundColor='rgba(0,0,0,'+(S.dim/100)+')';
+  if(!isPhoto()){ if(WP.on) wpOff(); return; }
+  WP.list=null; WP.on=false; wpNext();
+}
+setInterval(function(){
+  if(!isPhoto()||document.hidden||!WP.on) return;
+  var every=+S.wpEvery; if(every&&Date.now()-WP.shownAt>every*60000) wpNext();
+},30000);
+
+/* ---------- greeting, clock and weather ---------- */
+var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function clockText(d,plain){
+  var h=d.getHours(), m=d.getMinutes(), ap='';
+  if(S.clock!=='24'){ ap=h<12?'AM':'PM'; h=h%12||12; }
+  return h+':'+pad2(m)+(ap?(plain?' '+ap:'<span class="ap">'+ap+'</span>'):'');
+}
+function greeting(h){ return h<5?'Still up':h<12?'Good morning':h<17?'Good afternoon':h<22?'Good evening':'Good night'; }
+var WX=readJSON(K_WX)||{}, wxT=null;
+var WX_GLYPH={
+ sun:'M12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z M12 2.5v2 M12 19.5v2 M2.5 12h2 M19.5 12h2 M5.3 5.3l1.4 1.4 M17.3 17.3l1.4 1.4 M5.3 18.7l1.4-1.4 M17.3 6.7l1.4-1.4',
+ moon:'M19 14.5A7.5 7.5 0 1 1 9.5 5a6 6 0 0 0 9.5 9.5z',
+ partly:'M8.5 4.5v1.3 M3.3 9.5h1.3 M4.8 5.8l.9.9 M12.2 5.8l-.9.9 M6.2 11.6A3.2 3.2 0 1 1 11.6 8 M8 19.5h9.5a3.5 3.5 0 0 0 .3-7a5 5 0 0 0-9.6 1.4A2.8 2.8 0 0 0 8 19.5z',
+ cloud:'M7 18.5h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 18.5z',
+ fog:'M7 13.5h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 13.5z M4 17h16 M6 20.5h12',
+ rain:'M7 14h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z M8.5 17l-1 2.5 M12.5 17l-1 2.5 M16.5 17l-1 2.5',
+ snow:'M7 14h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z M8.5 18h.01 M12 20h.01 M15.5 18h.01 M10.2 21.5h.01 M13.8 21.5h.01',
+ storm:'M7 14h10.5a4 4 0 0 0 .4-8a5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 14z M12.5 14.5l-2 3.5h3l-2 3.5'
+};
+/* WMO weather codes as Open-Meteo reports them -> [glyph, words for the sentence] */
+function wxWords(code,day){
+  if(code===0) return [day?'sun':'moon','and clear'];
+  if(code===1) return [day?'sun':'moon','and mostly clear'];
+  if(code===2) return [day?'partly':'cloud','and partly cloudy'];
+  if(code===3) return ['cloud','and overcast'];
+  if(code===45||code===48) return ['fog','and foggy'];
+  if(code>=51&&code<=57) return ['rain','with drizzle'];
+  if((code>=61&&code<=67)) return ['rain','with rain'];
+  if((code>=71&&code<=77)) return ['snow','with snow'];
+  if(code>=80&&code<=82) return ['rain','with showers'];
+  if(code===85||code===86) return ['snow','with snow showers'];
+  if(code>=95) return ['storm','with thunderstorms'];
+  return ['cloud',''];
+}
+var lastHead='';
+function tick(){
+  var d=new Date(), t=S.clock==='off'?'':clockText(d);
+  if($('time').innerHTML!==t) $('time').innerHTML=t;
+  var g=greeting(d.getHours()), name=String(S.name||'').trim();
+  var greet=name?g+', <i>'+esc(name)+'</i>':g.replace(/ (\w+)$/,' <i>$1</i>');
+  var ctx='<span>'+DAYS[d.getDay()]+', '+MONTHS[d.getMonth()]+' '+d.getDate()+'</span>';
+  if(wxReady()){
+    var w=wxWords(WX.code,WX.day);
+    ctx+='<span class="dot"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+WX_GLYPH[w[0]]+'"/></svg><span>'+Math.round(WX.temp)+'° '+w[1]+'</span>';
+    if(WX.hi!==undefined) ctx+='<span class="dot"></span><span>High '+Math.round(WX.hi)+'°, low '+Math.round(WX.lo)+'°</span>';
+  }
+  var head=greet+'|'+ctx;
+  if(head!==lastHead){ lastHead=head; $('greet').innerHTML=greet; $('context').innerHTML=ctx; }
+}
+setInterval(tick,15000);
+function wxReady(){ return S.weather&&WX.temp!==undefined&&WX.units===S.wxUnits&&WX.lat===S.wxLat&&WX.lon===S.wxLon&&Date.now()-WX.t<3*3600e3; }
+function wxRefresh(force){
+  clearTimeout(wxT); tick();
+  if(!S.weather||S.wxLat===undefined) return;
+  var fresh=WX.units===S.wxUnits&&WX.lat===S.wxLat&&WX.lon===S.wxLon&&Date.now()-WX.t<30*60e3;
+  if(fresh&&!force){ wxT=setTimeout(function(){ wxRefresh(true); },30*60e3-(Date.now()-WX.t)); return; }
+  getJSON('https://api.open-meteo.com/v1/forecast?latitude='+S.wxLat+'&longitude='+S.wxLon+
+    '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=1&timezone=auto'+
+    (S.wxUnits==='f'?'&temperature_unit=fahrenheit':''),function(j,err){
+    if(!j||!j.current){ dlog('weather: forecast failed ('+(err||(j&&j.reason)||'no data')+')'); wxT=setTimeout(function(){ wxRefresh(true); },10*60e3); return; }
+    var dl=j.daily||{};
+    WX={t:Date.now(),lat:S.wxLat,lon:S.wxLon,units:S.wxUnits,temp:j.current.temperature_2m,code:j.current.weather_code,day:j.current.is_day!==0,
+      hi:dl.temperature_2m_max?dl.temperature_2m_max[0]:undefined,lo:dl.temperature_2m_min?dl.temperature_2m_min[0]:undefined,
+      sunrise:dl.sunrise?dl.sunrise[0]:'',sunset:dl.sunset?dl.sunset[0]:''};
+    writeJSON(K_WX,WX); tick(); skyCache.key=''; bdKey=null; paintBackdrop();
+    dlog('weather: '+Math.round(WX.temp)+' code '+WX.code+', sun '+WX.sunrise.slice(11)+'-'+WX.sunset.slice(11));
+    wxT=setTimeout(function(){ wxRefresh(true); },30*60e3);
+  });
+}
+/* look the place up once: "Austin", "Austin, Texas" or a postal code */
+function wxSetPlace(q,inp){
+  toast('Looking up '+q+'…');
+  getJSON('https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&format=json&name='+encodeURIComponent(q.split(',')[0].trim()),function(j,err){
+    var list=(j&&j.results)||[], hint=q.indexOf(',')>-1?q.slice(q.indexOf(',')+1).trim().toLowerCase():'', r=list[0];
+    if(hint) for(var i=0;i<list.length;i++){ var x=list[i]; if([x.admin1,x.country,x.country_code].join('|').toLowerCase().indexOf(hint)>-1){ r=x; break; } }
+    if(!r){ toast(err?'Couldn’t reach the weather service':'Couldn’t find '+q); if(inp) inp.value=S.wxPlace||''; return; }
+    S.wxLat=Math.round(r.latitude*1000)/1000; S.wxLon=Math.round(r.longitude*1000)/1000;
+    S.wxPlace=r.name+(r.admin1&&r.admin1!==r.name?', '+r.admin1:'')+(r.country_code&&r.country_code!=='US'?', '+r.country_code:'');
+    saveS(); if(inp) inp.value=S.wxPlace;
+    toast('Weather for '+S.wxPlace); wxRefresh(true);
+  });
+}
+
+/* ---------- Home Assistant scenes ----------
+   Same setup as Lumen: tiles from http://<address>/local/halcyon.json (or lumen.json), each one a webhook.
+   On the TV both requests go through root curl, never XHR: a CORS-blocked POST still reaches Home Assistant,
+   so falling back after XHR would run the automation twice. */
+var HA=readJSON(K_HA)||{}, haBusy=false, haLast=0, haState='', haOk={};
+function haAddr(v){
+  v=String(v||'').trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
+  if(!/^[A-Za-z0-9.\-]+(:\d{1,5})?$/.test(v)) return '';
+  return v.indexOf(':')<0?v+':8123':v;
+}
+function haBase(){ var a=haAddr(S.haAddr); return a?'http://'+a:''; }
+function haMerge(){
+  HA_IDS=[];
+  var src=SOURCE==='demo'&&!S.haAddr?DEMO_HA:(HA.addr===haAddr(S.haAddr)?HA:null);
+  if(!src) return;
+  if(src===DEMO_HA) HA=Object.assign({},DEMO_HA,{demo:true});
+  (src.tiles||[]).forEach(function(t){
+    var id='ha:'+t.webhook, c=HA_COLORS[t.icon]||HA_COLORS.scene, gl={movie:'film'}[t.icon]||t.icon;
+    APPS[id]={id:id,title:t.name,glyph:G[gl]?gl:'scene',icon:t.icon,c1:c[0],c2:c[1],ha:{webhook:t.webhook},category:src.title||'Home Assistant',desc:t.description||'Press OK to run it.'};
+    HA_IDS.push(id);
+  });
+}
+function haTiles(j){
+  var out=[];
+  ((j&&j.tiles)||[]).forEach(function(t){
+    if(!t||typeof t.name!=='string'||!t.name.trim()||typeof t.webhook!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(t.webhook)) return;
+    if(out.length<20) out.push({name:t.name.trim().slice(0,32),webhook:t.webhook,icon:typeof t.icon==='string'?t.icon:'scene',description:typeof t.description==='string'?t.description.slice(0,160):''});
+  });
+  return out;
+}
+function haStatusText(){
+  if(!haAddr(S.haAddr)) return S.haAddr?'Address not valid':'Not set up';
+  if(haState==='loading') return 'Loading…';
+  if(haState==='unreachable') return 'Can’t reach Home Assistant';
+  if(haState==='nofile') return 'No halcyon.json or lumen.json';
+  if(haState==='bad') return 'The tile file has a mistake';
+  var n=HA.addr===haAddr(S.haAddr)?(HA.tiles||[]).length:0;
+  return n?n+' scene'+(n===1?'':'s'):'No scenes yet';
+}
+function haFetch(url,cb){
+  if(ON_TV){
+    rootExec('curl -s --max-time 8 -w '+shq('\\n%{http_code}')+' '+shq(url)+' 2>/dev/null || echo 000',function(res,err){
+      var t=(res&&res.stdoutString)||'', k=t.lastIndexOf('\n'), code=+t.slice(k+1).trim()||0;
+      cb(code,k>-1?t.slice(0,k):'',err);
+    });
+    return;
+  }
+  try{ var x=new XMLHttpRequest(); x.open('GET',url,true); x.timeout=8000;
+    x.onload=function(){ cb(x.status,x.responseText); }; x.onerror=x.ontimeout=function(){ cb(0,''); }; x.send(); }catch(e){ cb(0,''); }
+}
+function haLoad(manual){
+  var base=haBase();
+  if(!base){ if(manual) toast(S.haAddr?'That address doesn’t look right':'Set Home Assistant’s address first'); haState=''; refreshSettingsPage('Home Assistant'); return; }
+  if(haBusy||(!manual&&Date.now()-haLast<60000)) return;
+  haBusy=true; haLast=Date.now(); if(manual){ haState='loading'; refreshSettingsPage('Home Assistant'); }
+  var got=function(code,body,err,file){
+    haBusy=false;
+    var j=null; if(code===200){ try{ j=JSON.parse(body); }catch(e){} }
+    haState=code===0?'unreachable':code===404?'nofile':code!==200?'unreachable':!j?'bad':'';
+    dlog('home assistant: '+file+' -> HTTP '+(code||'no answer')+(err?' ('+err+')':'')+(j?', '+haTiles(j).length+' tiles':''));
+    if(j){
+      var next={addr:haAddr(S.haAddr),title:typeof j.title==='string'?j.title.slice(0,32):'',tiles:haTiles(j)};
+      if(!next.tiles.length&&(j.tiles||[]).length) haState='bad';
+      var changed=JSON.stringify(next)!==JSON.stringify(HA);
+      HA=next; writeJSON(K_HA,HA);
+      if(changed){ haMerge(); render(); }
+    }
+    if(manual) toast(haState?haStatusText():HA.tiles.length+' scene'+(HA.tiles.length===1?'':'s')+' loaded');
+    refreshSettingsPage('Home Assistant');
+  };
+  haFetch(base+'/local/halcyon.json?t='+Date.now(),function(code,body,err){
+    if(code!==404) return got(code,body,err,'halcyon.json');
+    haFetch(base+'/local/lumen.json?t='+Date.now(),function(c2,b2,e2){ got(c2,b2,e2,'lumen.json'); });
+  });
+}
+function haRun(a){
+  var done=function(code,err){
+    dlog('home assistant: '+a.title+' -> HTTP '+(code||'no answer')+(err?' ('+err+')':''));
+    var ok=code>=200&&code<300;
+    toast(ok?a.title+'  ✓':code===0?'Couldn’t reach Home Assistant':'Home Assistant said no ('+code+')');
+    if(ok){ haOk[a.id]=1; var i=DOCK.indexOf(a.id); if(pillEls[i]) pillEls[i].classList.add('ok'); setTimeout(function(){ delete haOk[a.id]; var j=DOCK.indexOf(a.id); if(pillEls[j]) pillEls[j].classList.remove('ok'); },4000); }
+  };
+  if(HA.demo||!ON_TV){ dlog('home assistant: '+a.title+' (preview)'); toast(a.title+'  —  preview only, no TV connected'); return; }
+  var base=haBase(); if(!base){ toast('Set Home Assistant’s address in settings'); return; }
+  rootExec('curl -s -o /dev/null --max-time 8 -w '+shq('%{http_code}')+' -X POST '+shq(base+'/api/webhook/'+a.ha.webhook)+' 2>/dev/null || echo 000',function(res,err){
+    done(+String((res&&res.stdoutString)||'').trim()||0,err);
+  });
+}
+
+/* ---------- apps and inputs from the TV ---------- */
+function mapLaunchPoint(p){
+  var id=p.id||p.appId;
+  return {id:id,title:p.title||id,icon:fileUrl(p.largeIcon||p.mediumLargeIcon||p.icon,p.folderPath),icon2:fileUrl(p.icon,p.folderPath),
+    color:(p.iconColor&&/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(p.iconColor))?p.iconColor:((p.bgColor&&/^#[0-9a-f]{6}$/i.test(p.bgColor))?p.bgColor:hashColor(id)),
+    params:p.params||null,system:!!(p.systemApp||p.removable===false)};
+}
+function appListFrom(r){
+  var seen={}, list=[];
+  (r.launchPoints||r.apps||[]).forEach(function(p){
+    var id=p&&(p.id||p.appId);
+    if(!id||seen[id]||EXCLUDE[id]||p.visible===false||p.noWindow||INPUT_RE.test(id)) return;
+    seen[id]=1; list.push(mapLaunchPoint(p));
+  });
+  list.sort(function(x,y){ return x.title.localeCompare(y.title); });
+  return list;
+}
+function inputListFrom(r){
+  var out=[];
+  (r.devices||r.inputs||[]).forEach(function(d){
+    var port=String(d.id||d.port||''), m=/hdmi[_ ]?(\d)/i.exec(port)||/hdmi(\d)/i.exec(d.appId||'');
+    if(!m) return;
+    var n=m[1], appId=(d.appId&&/^com\.webos\.app\./.test(d.appId))?d.appId:'com.webos.app.hdmi'+n;
+    var connected=d.connected===true||d.connected==='true'||d.connectedStatus===true;
+    if(d.connected===undefined&&d.connectedStatus===undefined) connected=true;
+    if(!connected) return;
+    var label=d.userName||d.label||d.deviceName||('HDMI '+n);
+    if(label.replace(/\s/g,'').toUpperCase()==='HDMI'+n) label='HDMI '+n;
+    out.push({id:appId,title:label,input:true,port:'HDMI '+n,color:'#4a5568',category:'Source'});
+  });
+  out.sort(function(x,y){ return x.port.localeCompare(y.port); });
+  return out;
+}
+var loading=false, appSig='';
+function loadTvApps(manual){
+  if(!ON_TV||loading) return;
+  loading=true;
+  var pending=2, apps=null, inputs=null, errs=[];
+  var done=function(){
+    if(--pending>0) return;
+    loading=false;
+    if(!apps&&SOURCE==='tv') apps=ALL.map(function(id){ return APPS[id]; });
+    if(!inputs&&SOURCE==='tv') inputs=INPUTS.map(function(id){ return APPS[id]; });
+    if(apps&&apps.length){
+      var list=apps.concat(inputs||[]), sig=JSON.stringify(list);
+      writeJSON(K_APPS,list); banner(null);
+      if(sig!==appSig||SOURCE!=='tv'){ appSig=sig; setApps(list,'tv'); render(); }
+      resolveIcons();
+      if(manual) toast(apps.length+' apps'+(inputs?', '+inputs.length+' sources':'')+' loaded');
+      return;
+    }
+    if(SOURCE==='tv'){ if(manual) toast('Couldn’t reload apps. Press 0 for details.'); return; }
+    setApps(demoApps(),'demo'); render();
+    banner('Couldn’t read your installed apps ('+errs.join(' | ')+'). Showing sample apps. Press 0 for the debug log.');
+  };
+  lunaQuery('luna://com.webos.applicationManager/listLaunchPoints',{},function(r){ return !!r.launchPoints; },function(r,err){
+    if(r){ apps=appListFrom(r); dlog('apps: '+apps.length+' from launch points'); return done(); }
+    errs.push('launch points: '+err);
+    lunaQuery('luna://com.webos.applicationManager/listApps',{},function(r){ return !!r.apps; },function(r2,err2){
+      if(r2){ apps=appListFrom(r2); dlog('apps: '+apps.length+' from app list'); } else errs.push('app list: '+err2);
+      done();
+    });
+  });
+  lunaQuery('luna://com.webos.service.eim/getAllInputStatus',{},function(r){ return !!(r.devices||r.inputs); },function(r,err){
+    if(r){ inputs=inputListFrom(r); dlog('inputs: '+inputs.length+' connected HDMI'); } else dlog('inputs: could not read ('+err+')');
+    done();
+  });
+}
+
+/* ---------- icons ----------
+   the large icon, then the small one, then the file read as root through the Homebrew Channel.
+   Each icon's edge colour decides how it sits on its card, so it never shows as a box inside a box:
+   'seam' solid edge -> the card takes that colour; 'tile' busy edge -> rounded tile; 'clear' -> floats. */
+var ICONS={}, ICON_TRY={}, ICON_STORE=readJSON(K_ICONS)||{}, COLORS=readJSON(K_COLORS)||{};
+function probe(src,ok,fail){ var im=new Image(); im.onload=function(){ if(im.naturalWidth>0) ok(im); else fail(); }; im.onerror=fail; im.src=src; }
+var rootQueue=[], rootBusy=0;
+function rootIcon(id,path,cb){ rootQueue.push([id,path,cb]); pumpRoot(); }
+function pumpRoot(){
+  while(rootBusy<3&&rootQueue.length){
+    (function(job){
+      rootBusy++;
+      var p=String(job[1]||'').replace(/^file:\/\//,'');
+      if(!/^[A-Za-z0-9_\/.+@-]+$/.test(p)){ rootBusy--; job[2](null); pumpRoot(); return; }
+      rootExec('cat '+shq(p),function(res,err){
+        rootBusy--;
+        var b64=res&&res.stdoutBytes;
+        if(!b64){ dlog('icon: root read failed for',job[0],err||'empty file'); job[2](null); }
+        else { var ext=(p.split('.').pop()||'').toLowerCase(); job[2]('data:'+(ext==='jpg'||ext==='jpeg'?'image/jpeg':ext==='svg'?'image/svg+xml':ext==='webp'?'image/webp':'image/png')+';base64,'+b64); }
+        pumpRoot();
+      });
+    })(rootQueue.shift());
+  }
+}
+function storeIcon(id,uri){
+  ICON_STORE[id]=uri;
+  var total=0; for(var k in ICON_STORE) total+=ICON_STORE[k].length;
+  if(total<3500000) writeJSON(K_ICONS,ICON_STORE);
+}
+function resolveIcons(){
+  Object.keys(APPS).forEach(function(id){
+    var a=APPS[id];
+    if(a.demo||a.input||a.ha) return;
+    var sig=a.icon||''; if(ICON_TRY[id]===sig) return; ICON_TRY[id]=sig;
+    var cands=[]; if(a.icon) cands.push(a.icon); if(a.icon2&&a.icon2!==a.icon) cands.push(a.icon2);
+    var i=0;
+    var next=function(){
+      if(i<cands.length){ var s=cands[i++]; probe(s,function(im){ applyIcon(id,s,im); },next); return; }
+      if(ICON_STORE[id]){ probe(ICON_STORE[id],function(im){ applyIcon(id,ICON_STORE[id],im,true); },function(){ delete ICON_STORE[id]; }); return; }
+      if(!cands.length) return;
+      dlog('icon: file blocked for',id,'- reading it as root');
+      rootIcon(id,cands[0],function(uri){ if(uri) probe(uri,function(im){ storeIcon(id,uri); applyIcon(id,uri,im,true); },function(){}); });
+    };
+    next();
+  });
+}
+function analyzeIcon(img){
+  var N=40, c=document.createElement('canvas'); c.width=c.height=N;
+  var x=c.getContext('2d'); x.drawImage(img,0,0,N,N);
+  var d=x.getImageData(0,0,N,N).data, eN=0, aSum=0, border=[], i, y, k;
+  for(y=0;y<N;y++) for(i=0;i<N;i++){
+    if(!(i<3||y<3||i>=N-3||y>=N-3)) continue;
+    if((i<12||i>=N-12)&&(y<12||y>=N-12)) continue;          /* skip rounded corners */
+    k=(y*N+i)*4; eN++; aSum+=d[k+3];
+    if(d[k+3]>200) border.push([d[k],d[k+1],d[k+2]]);
+  }
+  var edge=null, mode='clear';
+  if(aSum/eN/255>.85&&border.length>eN*.8){
+    edge=[0,0,0]; border.forEach(function(p){ edge[0]+=p[0]; edge[1]+=p[1]; edge[2]+=p[2]; });
+    edge=edge.map(function(v){ return Math.round(v/border.length); });
+    var dev=0; border.forEach(function(p){ dev+=Math.abs(p[0]-edge[0])+Math.abs(p[1]-edge[1])+Math.abs(p[2]-edge[2]); });
+    mode=dev/border.length<24?'seam':'tile';
+  }
+  var ws=0, ac=[0,0,0];
+  for(y=3;y<N-3;y++) for(i=3;i<N-3;i++){
+    k=(y*N+i)*4; if(d[k+3]<160) continue;
+    var px=[d[k],d[k+1],d[k+2]], mx=Math.max(px[0],px[1],px[2]), s=satOf(px);
+    var dist=edge?(Math.abs(px[0]-edge[0])+Math.abs(px[1]-edge[1])+Math.abs(px[2]-edge[2]))/765:1;
+    var w=(s*s+.02)*(dist+.05)*(mx/255+.2);
+    ws+=w; ac[0]+=px[0]*w; ac[1]+=px[1]*w; ac[2]+=px[2]*w;
+  }
+  var accent=ws?ac.map(function(v){ return Math.round(v/ws); }):(edge||[90,100,120]);
+  return {mode:mode,edge:edge||mixA(accent,[8,10,14],.6),accent:accent};
+}
+function iconMode(id){ var p=COLORS[id]; return p?p.mode:'clear'; }
+function applyIcon(id,src,img,fromRoot){
+  var a=APPS[id]; if(!a) return;
+  var sig=a.icon||'', p=COLORS[id];
+  if(img&&!(p&&p.sig===sig)){
+    try{ p=analyzeIcon(img); p.sig=sig; COLORS[id]=p; writeJSON(K_COLORS,COLORS); }
+    catch(e){
+      if(!fromRoot&&!/^data:/.test(src)){
+        dlog('icon: colours unreadable for',id,'- reading the file as root');
+        rootIcon(id,src,function(uri){ if(uri) probe(uri,function(im){ storeIcon(id,uri); applyIcon(id,uri,im,true); },function(){}); });
+      }
+    }
+  }
+  ICONS[id]=src;
+  Array.prototype.forEach.call($('track').querySelectorAll('.art[data-id="'+id+'"]'),function(el){
+    el.innerHTML='<img src="'+esc(src)+'" alt="">';
+    el.className='art '+iconMode(id);
+    el.parentNode.style.background=faceBg(a);
+  });
+  if(focusApp&&focusApp.id===id){ updateAutoAccent(a); bdKey=null; paintBackdrop(); }
+}
+
+/* ---------- launching ---------- */
+var toastT=null;
+function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(function(){ t.classList.remove('on'); },2800); }
+var bannerT=null;
+function banner(msg,ms){
+  var b=$('banner'); clearTimeout(bannerT);
+  if(!msg){ b.hidden=true; return; }
+  b.textContent=msg; b.hidden=false;
+  if(ms) bannerT=setTimeout(function(){ banner(null); },ms);
+}
+function stageRect(el){ var sr=stage.getBoundingClientRect(), r=el.getBoundingClientRect(); return {l:(r.left-sr.left)/SCALE,t:(r.top-sr.top)/SCALE,w:r.width/SCALE,h:r.height/SCALE}; }
+function hideZoom(){ var z=$('zoom'); z.classList.remove('go'); z.style.opacity='0'; }
+function noteUse(id){
+  var a=APPS[id]; if(!a||a.input||a.ha) return;
+  var u=S.used||(S.used={}), prev=u[id]||[0,0];
+  u[id]=[Date.now(),prev[1]+1];
+  S.recent=[id].concat((S.recent||[]).filter(function(x){ return x!==id; })).slice(0,14);
+  saveS();
+}
+function launch(id,fromEl){
+  var a=APPS[id]; if(!a) return;
+  if(a.ha){ haRun(a); return; }
+  var face=fromEl&&fromEl.querySelector('.face'), z=$('zoom');
+  if(face&&S.speed!=='off'&&S.quality!=='lite'){
+    var r=stageRect(face);
+    z.classList.remove('go');
+    z.style.background=faceBg(a);
+    z.innerHTML='<div class="art'+(a.input?' nm':'')+(ICONS[a.id]&&!a.input?' '+iconMode(a.id):'')+'">'+artHtml(a)+'</div>';
+    z.style.transform='translate3d('+r.l+'px,'+r.t+'px,0) scale('+(r.w/1920)+','+(r.h/1080)+')';
+    z.style.opacity='1';
+    void z.offsetWidth;
+    z.classList.add('go'); z.style.transform='none';
+    setTimeout(hideZoom,ON_TV?1500:900);
+  }
+  noteUse(id);
+  setTimeout(function(){
+    if(a.demo){ toast('Opening '+a.title+'  —  preview only, no TV connected'); return; }
+    var params={id:id}; if(a.params) params.params=a.params;
+    dlog('launch',id);
+    luna('luna://com.webos.applicationManager/launch',params,function(res){
+      if(res&&res.returnValue===false){
+        dlog('launch refused ('+res.errorText+'), trying root');
+        if(!safeId(id)){ hideZoom(); toast('Couldn’t open '+a.title); return; }
+        rootExec('luna-send -n 1 '+shq('luna://com.webos.applicationManager/launch')+' '+shq(JSON.stringify(params)),function(out,err){
+          if(err){ hideZoom(); dlog('launch failed',err); toast('Couldn’t open '+a.title); }
+        });
+      }
+    });
+  },300);
+}
+function openTvSettings(){
+  if(!ON_TV){ toast('Opening TV settings  —  preview only, no TV connected'); return; }
+  lunaDo('luna://com.webos.applicationManager/launch',{id:'com.palm.app.settings'},function(ok,err){
+    if(!ok){ dlog('tv settings: failed ('+err+')'); toast('Couldn’t open TV settings. Press 0 for details.'); }
+  });
+}
+
+/* ---------- options menu (hold OK or the yellow button) ---------- */
+var menuItems=[];
+function openMenu(){
+  var t=curTab(); if(!t||!focusedCard) return;
+  var id=t.ids[col()], a=APPS[id], fav=(S.favorites||[]).indexOf(id)>-1;
+  menuItems=[{label:'Open',act:function(){ closeMenu(); launch(id,focusedCard); }}];
+  menuItems.push(fav?{label:'Remove from Favorites',act:function(){ S.favorites=S.favorites.filter(function(x){ return x!==id; }); saveS(); closeMenu(); render(); toast(a.title+' removed from Favorites'); }}
+                   :{label:'Add to Favorites',act:function(){ S.favorites=(S.favorites||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' added to Favorites'); }});
+  if(t.key==='fav'||t.key==='all') menuItems.push({label:'Move',act:function(){ closeMenu(); F.moving={tab:t.key,id:id}; applyFocus(); }});
+  if(t.key==='recent') menuItems.push({label:'Remove from Recent',act:function(){ S.recent=(S.recent||[]).filter(function(x){ return x!==id; }); saveS(); closeMenu(); render(); }});
+  if(!a.input) menuItems.push({label:'Hide',act:function(){ S.hidden=(S.hidden||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' hidden. Show it again in settings.'); }});
+  menuItems.push({label:'Cancel',act:function(){ closeMenu(); applyFocus(); }});
+  var m=$('menu');
+  m.innerHTML='<div class="mh">'+esc(a.title)+'</div>'+menuItems.map(function(it,i){ return '<div class="mi" data-i="'+i+'">'+it.label+'</div>'; }).join('');
+  Array.prototype.forEach.call(m.querySelectorAll('.mi'),function(el){
+    el.addEventListener('mouseenter',function(){ F.mIdx=+el.getAttribute('data-i'); paintMenu(); });
+    el.addEventListener('click',function(e){ e.stopPropagation(); menuItems[+el.getAttribute('data-i')].act(); });
+  });
+  F.mIdx=0; F.zone='menu'; paintMenu();
+  var fr=stageRect(focusedCard.querySelector('.face'));
+  m.style.left=Math.min(fr.l,1920-480)+'px';
+  var top=fr.t-m.offsetHeight-30; if(top<40) top=fr.t+fr.h+30;
+  m.style.top=top+'px'; m.classList.add('open');
+}
+function paintMenu(){ Array.prototype.forEach.call($('menu').querySelectorAll('.mi'),function(el,i){ el.classList.toggle('focus',i===F.mIdx); }); }
+function closeMenu(){ $('menu').classList.remove('open'); if(F.zone==='menu') F.zone='shelf'; }
+function moveBy(dir){
+  var t=curTab(), c=col(), n=c+dir; if(!t||n<0||n>=t.ids.length) return;
+  var id=t.ids[c], other=t.ids[n], list;
+  if(t.key==='fav') list=S.favorites=t.ids.slice();
+  else { S.order=S.order||{}; list=S.order[SOURCE]=orderedAll(); }
+  var i=list.indexOf(id), j=list.indexOf(other); list[i]=other; list[j]=id;
+  F.cols[t.key]=n; saveS(); render();
+}
+function endMove(){ F.moving=null; applyFocus(); toast('Order saved'); }
+
+/* ---------- settings sheet ---------- */
+var sFocusable=[], sItems=[], resetArmed=false, resetT=null;
+function optValue(o){
+  var v=S[o.key];
+  if(o.key==='_hidden'){ var n=(S.hidden||[]).length; return n?n+' hidden  ·  OK shows all':'None'; }
+  if(o.key==='_refresh') return ON_TV?'OK to reload':'TV only';
+  if(o.key==='_favs') return (S.favorites||[]).filter(function(id){ return APPS[id]; }).length+' chosen<span class="chev" style="opacity:.55">&#8250;</span>';
+  if(o.key==='_recent') return (S.recent||[]).length?(S.recent.length+' apps'):'Empty';
+  if(o.key==='_debug') return 'Also: 0 or blue button';
+  if(o.key==='_reset') return resetArmed?'Press OK again to confirm':'';
+  if(o.key==='_nextwp') return 'OK, or the green button';
+  if(o.key==='_haReload') return esc(haStatusText());
+  if(o.text) return '<input class="tx" id="in-'+o.key+'" type="text" value="'+esc(v||'')+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' spellcheck="false" autocomplete="off" tabindex="-1">';
+  if(o.bool) return '<span class="tog'+(v?' on':'')+'"></span>';
+  if(o.swatch){
+    var n=o.swatch.length, at=0; for(var q=0;q<n;q++) if(o.swatch[q][0]===v) at=q;
+    var dot=function(k,sel){ var w=o.swatch[(k+n)%n], au=w[0]==='auto'; return '<span class="swd'+(sel?' sel':'')+(au?' auto':'')+'" style="background:'+(au?'#fff':w[0])+';color:'+(au?'#fff':w[0])+'"></span>'; };
+    return '<span class="chev">&#8249;</span><span class="swc">'+dot(at-1)+dot(at,1)+dot(at+1)+'</span><span class="swn">'+esc(o.swatch[at][1])+'</span><span class="chev">&#8250;</span>';
+  }
+  if(o.range) return '<span class="chev">&#8249;</span>'+o.fmt(v)+'<span class="chev">&#8250;</span>';
+  for(var i=0;i<o.values.length;i++) if(o.values[i][0]===v) return '<span class="chev">&#8249;</span>'+o.values[i][1]+'<span class="chev">&#8250;</span>';
+  return '';
+}
+function setHead(t,sub){ $('s-head').innerHTML='<h2>'+esc(t)+'</h2><p>'+esc(sub)+'</p>'; }
+function renderSettings(){
+  var L=$('s-list'), html=''; sFocusable=[];
+  if(F.page<0){
+    setHead('Halcyon','Changes apply as you go. Back closes.');
+    OPTIONS.forEach(function(o,i){
+      if(!o.h) return;
+      sFocusable.push(i);
+      html+='<div class="si pg"><span>'+esc(o.h)+'</span><span class="v">'+esc(o.sum())+'<span class="chev">&#8250;</span></span></div>';
+    });
+  } else {
+    setHead(OPTIONS[F.page].h,'Back to all settings.');
+    for(var i=F.page+1;i<OPTIONS.length&&!OPTIONS[i].h;i++){
+      var o=OPTIONS[i]; if(o.when&&!o.when()) continue;
+      sFocusable.push(i);
+      html+='<div class="si"><span>'+esc(o.label)+'</span><span class="v">'+optValue(o)+'</span></div>';
+    }
+  }
+  L.innerHTML=html;
+  sItems=L.querySelectorAll('.si');
+  Array.prototype.forEach.call(sItems,function(el,k){
+    el.addEventListener('mouseenter',function(){ F.sIdx=k; paintSettings(); });
+    el.addEventListener('click',function(){ F.sIdx=k; paintSettings(); changeOpt(1,true); });
+  });
+  F.sLast=-1; if(F.sIdx>=sItems.length) F.sIdx=Math.max(0,sItems.length-1); paintSettings();
+}
+function paintSettings(){
+  if(F.sLast>=0&&sItems[F.sLast]) sItems[F.sLast].classList.remove('focus');
+  var el=sItems[F.sIdx], L=$('s-list');
+  if(el){ el.classList.add('focus'); L.scrollTop=Math.max(0,el.offsetTop-L.clientHeight/2+38); }
+  F.sLast=F.sIdx;
+}
+function refreshOpt(){ var el=sItems[F.sIdx], o=OPTIONS[sFocusable[F.sIdx]]; if(el&&o&&!o.h) el.querySelector('.v').innerHTML=optValue(o); }
+function refreshSettingsPage(h){
+  if(F.zone!=='settings'||F.sub) return;
+  if(F.page<0||OPTIONS[F.page].h===h){ var keep=F.sIdx; renderSettings(); F.sIdx=Math.min(keep,sFocusable.length-1); paintSettings(); }
+}
+var RERENDER={shape:1,size:1,bigFav:1,recentTab:1,dock:1,haDock:1,scroll:1};
+function openPage(i){ F.page=i; F.lastPage=i; F.sIdx=0; renderSettings(); }
+function closePage(){ var p=F.page; F.page=-1; renderSettings(); F.sIdx=Math.max(0,sFocusable.indexOf(p)); paintSettings(); }
+function changeOpt(dir,isOk){
+  var o=OPTIONS[sFocusable[F.sIdx]];
+  if(!o) return;
+  if(o.h){ if(isOk||dir>0) openPage(sFocusable[F.sIdx]); return; }
+  if(o.action){
+    if(!isOk) return;
+    if(o.key==='_favs'){ openFavPicker(); return; }
+    if(o.key==='_nextwp'){ toast('Loading the next photo…'); wpNext(); return; }
+    if(o.key==='_debug'){ toggleDebug(); return; }
+    if(o.key==='_haReload'){ haLoad(true); return; }
+    if(o.key==='_refresh'&&ON_TV){ toast('Reloading apps…'); loadTvApps(true); }
+    if(o.key==='_hidden'&&(S.hidden||[]).length){ S.hidden=[]; saveS(); render(); toast('All apps are visible again'); }
+    if(o.key==='_recent'){ S.recent=[]; saveS(); render(); toast('Recent cleared'); }
+    if(o.key==='_reset'){
+      if(!resetArmed){ resetArmed=true; clearTimeout(resetT); resetT=setTimeout(function(){ resetArmed=false; refreshOpt(); },3500); }
+      else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden,hiddenInit:S.hiddenInit,recent:S.recent,used:S.used}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); toast('Settings reset'); return; }
+    }
+    refreshOpt(); return;
+  }
+  if(o.text){ if(isOk) startEdit(o.key); return; }
+  var v=S[o.key];
+  if(o.bool) S[o.key]=!v;
+  else if(o.range){ var lo=o.range[0],hi=o.range[1],st=o.range[2], nv=v+dir*st; if(isOk&&nv>hi) nv=lo; S[o.key]=Math.max(lo,Math.min(hi,nv)); }
+  else { var arr=o.swatch||o.values, idx=0; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) idx=i; S[o.key]=arr[(idx+dir+arr.length)%arr.length][0]; }
+  saveS(); applySettings();
+  if(RERENDER[o.key]) render(); else applyFocus(true);
+  if(o.key==='backdrop'||o.key==='dim'){ bdKey=null; if(o.key==='backdrop') wpApply(); else $('phShade').style.backgroundColor='rgba(0,0,0,'+(S.dim/100)+')'; }
+  if(o.key==='wpCredit') wpCredit();
+  bdKey=null; paintBackdrop();
+  if(o.key==='weather'||o.key==='wxUnits') wxRefresh(true);
+  if(o.key==='greet') tick();
+  if(o.when||o.key==='backdrop'||o.key==='weather'||o.key==='greet'){ var keep=o.key; renderSettings(); for(var q=0;q<sFocusable.length;q++) if(OPTIONS[sFocusable[q]].key===keep){ F.sIdx=q; break; } paintSettings(); return; }
+  refreshOpt();
+}
+/* text settings: focusing the field brings up the TV keyboard; OK saves, Back cancels */
+function startEdit(key){
+  var inp=$('in-'+key); if(!inp) return;
+  F.editing=key; F.editOld=S[key];
+  inp.parentNode.parentNode.classList.add('editing');
+  inp.removeAttribute('tabindex'); inp.focus();
+  try{ inp.setSelectionRange(0,inp.value.length); }catch(e){}
+}
+function endEdit(save){
+  var key=F.editing; if(!key) return;
+  var inp=$('in-'+key); F.editing=null;
+  if(!inp) return;
+  inp.parentNode.parentNode.classList.remove('editing'); inp.blur(); inp.setAttribute('tabindex','-1');
+  var val=String(inp.value||'').trim();
+  if(key==='haAddr'){ if(save){ S.haAddr=haAddr(val); saveS(); inp.value=S.haAddr; haLoad(true); } else inp.value=F.editOld||''; return; }
+  if(key==='wxPlace'){ if(save&&val) wxSetPlace(val,inp); else inp.value=F.editOld||''; return; }
+  if(key==='name'){ if(save){ S.name=val.slice(0,24); saveS(); inp.value=S.name; tick(); } else inp.value=F.editOld||''; return; }
+}
+function openSettings(){
+  F.prevZone=F.zone==='top'?'top':(F.zone==='settings'?'shelf':F.zone); F.zone='settings'; F.page=-1; F.sIdx=0;
+  renderSettings(); F.sIdx=Math.max(0,sFocusable.indexOf(F.lastPage)); paintSettings();
+  $('settings').classList.add('open'); $('scrim').classList.add('on'); $('top').style.opacity='0'; applyFocus();
+}
+function closeSettings(){ if(F.editing) endEdit(false); if(F.sub) closeFavPicker(true); $('settings').classList.remove('open'); $('scrim').classList.remove('on'); $('top').style.opacity=''; F.zone=F.prevZone||'shelf'; if(F.zone==='menu') F.zone='shelf'; applyFocus(true); }
+
+/* choose favorites: OK adds or removes; the number is the place on the shelf */
+var pkIds=[], pkReturn=0;
+function openFavPicker(){
+  pkReturn=F.sIdx; F.sub='fav';
+  var favs=(S.favorites||[]).filter(function(id){ return APPS[id]&&!isHidden(id); });
+  pkIds=favs.concat(orderedAll().concat(INPUTS).filter(function(id){ return favs.indexOf(id)<0&&!isHidden(id); }));
+  setHead('Choose favorites','OK adds or removes. Numbers are the order on the shelf.');
+  var html='';
+  pkIds.forEach(function(id){ var a=APPS[id]; html+='<div class="si"><span class="pk"><span class="nm">'+esc(a.title)+'</span>'+(a.input?'<span class="sub">Source</span>':'')+'</span><span class="pk-n"></span></div>'; });
+  $('s-list').innerHTML=html||'<div class="si">No apps loaded yet</div>';
+  sItems=$('s-list').querySelectorAll('.si');
+  Array.prototype.forEach.call(sItems,function(el,k){
+    el.addEventListener('mouseenter',function(){ F.sIdx=k; paintSettings(); });
+    el.addEventListener('click',function(){ F.sIdx=k; paintSettings(); togglePick(); });
+  });
+  F.sIdx=0; F.sLast=-1; paintPicks(); paintSettings();
+}
+function paintPicks(){
+  var favs=S.favorites||[];
+  Array.prototype.forEach.call(sItems,function(el,k){ var n=favs.indexOf(pkIds[k]), b=el.lastChild; if(!b||!pkIds[k]) return; b.className='pk-n'+(n>-1?' on':''); b.textContent=n>-1?(n+1):''; });
+}
+function togglePick(){
+  var id=pkIds[F.sIdx]; if(!id) return;
+  S.favorites=(S.favorites||[]).filter(function(x){ return APPS[x]; });
+  var i=S.favorites.indexOf(id); if(i>-1) S.favorites.splice(i,1); else S.favorites.push(id);
+  saveS(); paintPicks();
+}
+function closeFavPicker(quiet){ F.sub=null; if(!quiet){ renderSettings(); F.sIdx=pkReturn; paintSettings(); } render(); }
+
+/* ---------- apply settings ---------- */
+function applySettings(){
+  var cls=['fx-'+S.focus,'labels-'+S.labels,'shape-'+S.shape];
+  if(S.quality==='lite') cls.push('lite');
+  if(!S.greet) cls.push('no-greet');
+  if(S.clock==='off') cls.push('no-clock');
+  if(!S.hints) cls.push('no-hints');
+  if(S.speed==='off') cls.push('speed-off');
+  if(gliding) cls.push('glide');
+  if(F.zone==='top') cls.push('z-top');
+  if(F.zone==='tabs') cls.push('z-tabs');
+  if(F.zone==='shelf'||F.zone==='menu') cls.push('z-shelf');
+  if(stage.classList.contains('boot')) cls.push('boot');
+  if(WP.on&&isPhoto()) cls.push('photo');
+  stage.className=cls.join(' ');
+  var st=stage.style;
+  setAccent(S.accent==='auto'?(autoAccent||'#f2c47e'):S.accent);
+  st.setProperty('--radius',S.radius+'px');
+  st.setProperty('--scale',S.scale/100);
+  st.setProperty('--dur',{fast:'.2s',normal:'.32s',relaxed:'.5s',off:'0s'}[S.speed]);
+  setFps(S.fps);
+  renderHints();
+  tick();
+}
+function renderHints(){
+  $('hints').innerHTML='<span class="k">OK</span><span class="h">Open</span><span class="k">HOLD OK</span><span class="h">Options</span><span class="k">RED</span><span class="h">Settings</span>';
+}
+var fpsOn=false, fpsFrames=0, fpsT=0;
+function setFps(on){ $('fps').hidden=!on; if(on&&!fpsOn){ fpsOn=true; fpsFrames=0; fpsT=now(); requestAnimationFrame(fpsLoop); } if(!on) fpsOn=false; }
+function fpsLoop(){ if(!fpsOn) return; fpsFrames++; var t=now(); if(t-fpsT>=1000){ $('fps').textContent=Math.round(fpsFrames*1000/(t-fpsT))+' fps'; fpsFrames=0; fpsT=t; } requestAnimationFrame(fpsLoop); }
+
+/* ---------- remote ---------- */
+var K={LEFT:37,UP:38,RIGHT:39,DOWN:40,OK:13,BACK:461,ESC:27,BKSP:8,RED:403,GREEN:404,YELLOW:405,BLUE:406};
+var okTimer=null, holdFired=false, okDown=false, gliding=false, glideT=null, lastRepeat=0;
+function endGlide(){ gliding=false; stage.classList.remove('glide'); }
+function switchTab(i){
+  var t=TABS[i]; if(!t||t.key===F.tab) return;
+  F.tab=t.key; renderTrack(); layout(); applyFocus(true);
+}
+function onOk(){
+  var z=F.zone, t=curTab();
+  if(z==='shelf'){ if(!t) return; if(F.moving) endMove(); else launch(t.ids[col()],focusedCard); }
+  else if(z==='tabs'){ F.zone='shelf'; applyFocus(); }
+  else if(z==='dock'){ var id=DOCK[F.dock]; if(id) launch(id,null); }
+  else if(z==='top'){ if(F.top===0) openTvSettings(); else openSettings(); }
+  else if(z==='menu') menuItems[F.mIdx].act();
+  else if(z==='settings'){ if(F.sub) togglePick(); else changeOpt(1,true); }
+}
+function onHold(){ if(F.zone==='shelf'&&!F.moving) openMenu(); else onOk(); }
+function onBack(){
+  if(!$('debug').hidden){ toggleDebug(); return; }
+  var z=F.zone;
+  if(z==='settings'){ if(F.sub) closeFavPicker(); else if(F.page>=0) closePage(); else closeSettings(); return; }
+  if(z==='menu'){ closeMenu(); applyFocus(); return; }
+  if(F.moving){ endMove(); return; }
+  if(z==='top'||z==='tabs'||z==='dock'){ F.zone=TABS.length?'shelf':'top'; applyFocus(); return; }
+  /* on the shelf: first back to the first card, then to the first tab */
+  if(z==='shelf'&&col()>0){ F.cols[F.tab]=0; applyFocus(); return; }
+  if(z==='shelf'&&tabIndex()>0){ switchTab(0); }
+}
+function nav(k){
+  var z=F.zone;
+  if(z==='settings'){
+    if(F.sub){ if(k===K.UP) F.sIdx=Math.max(0,F.sIdx-1); else if(k===K.DOWN) F.sIdx=Math.min(sItems.length-1,F.sIdx+1); paintSettings(); return; }
+    if(k===K.UP) F.sIdx=Math.max(0,F.sIdx-1);
+    else if(k===K.DOWN) F.sIdx=Math.min(sFocusable.length-1,F.sIdx+1);
+    else if(k===K.LEFT) return changeOpt(-1);
+    else if(k===K.RIGHT) return changeOpt(1);
+    if(resetArmed){ resetArmed=false; refreshOpt(); }
+    paintSettings(); return;
+  }
+  if(z==='menu'){ if(k===K.UP) F.mIdx=Math.max(0,F.mIdx-1); if(k===K.DOWN) F.mIdx=Math.min(menuItems.length-1,F.mIdx+1); paintMenu(); return; }
+  if(z==='top'){
+    if(k===K.DOWN) F.zone=TABS.length?'tabs':(DOCK.length?'dock':'top');
+    else if(k===K.LEFT&&F.top>0) F.top--;
+    else if(k===K.RIGHT&&F.top<1) F.top++;
+    else return;
+    return applyFocus();
+  }
+  if(z==='tabs'){
+    var ti=tabIndex();
+    if(k===K.LEFT&&ti>0) switchTab(ti-1);
+    else if(k===K.RIGHT&&ti<TABS.length-1) switchTab(ti+1);
+    else if(k===K.UP){ F.zone='top'; F.top=1; applyFocus(); }
+    else if(k===K.DOWN){ F.zone='shelf'; applyFocus(); }
+    return;
+  }
+  if(z==='dock'){
+    if(k===K.LEFT&&F.dock>0) F.dock--;
+    else if(k===K.RIGHT&&F.dock<DOCK.length-1) F.dock++;
+    else if(k===K.UP) F.zone=TABS.length?'shelf':'top';
+    else return;
+    stepped(); return;
+  }
+  /* shelf */
+  var t=curTab();
+  if(!t){ if(k===K.UP){ F.zone='top'; applyFocus(); } else if(k===K.DOWN&&DOCK.length){ F.zone='dock'; applyFocus(); } return; }
+  if(F.moving){ if(k===K.LEFT) moveBy(-1); else if(k===K.RIGHT) moveBy(1); return; }
+  var c=col();
+  if(k===K.LEFT&&c>0) F.cols[t.key]=c-1;
+  else if(k===K.RIGHT&&c<t.ids.length-1) F.cols[t.key]=c+1;
+  else if(k===K.UP) F.zone='tabs';
+  else if(k===K.DOWN&&DOCK.length) F.zone='dock';
+  else return;
+  stepped();
+}
+/* fast repeats glide: short linear transitions instead of restarting a long ease every step */
+function stepped(){
+  var t=now();
+  if(t-lastNav<280){ if(!gliding){ gliding=true; stage.classList.add('glide'); } clearTimeout(glideT); glideT=setTimeout(endGlide,300); }
+  applyFocus(); lastNav=t;
+}
+document.addEventListener('keydown',function(e){
+  var k=e.keyCode;
+  if(F.editing){
+    if(k===K.OK){ e.preventDefault(); F.skipOkUp=true; endEdit(true); }
+    else if(k===K.BACK||k===K.ESC){ e.preventDefault(); endEdit(false); }
+    return;
+  }
+  if(k===K.GREEN){ e.preventDefault(); if(isPhoto()){ toast('Loading the next photo…'); wpNext(); } return; }
+  if(k===K.OK){ e.preventDefault(); if(okDown) return; okDown=true; holdFired=false; okTimer=setTimeout(function(){ holdFired=true; onHold(); },550); return; }
+  if(k===K.BACK||k===K.ESC||k===K.BKSP){ e.preventDefault(); onBack(); return; }
+  if(k===48||k===96||k===K.BLUE){ e.preventDefault(); toggleDebug(); return; }
+  if(k===K.RED){ e.preventDefault(); if(F.zone==='settings') closeSettings(); else openSettings(); return; }
+  if(k===K.YELLOW||e.key==='ContextMenu'){ e.preventDefault(); if(F.zone==='shelf') openMenu(); return; }
+  if(k>=37&&k<=40){
+    e.preventDefault();
+    if(e.repeat){ var t=now(); if(t-lastRepeat<(S.quality==='lite'?70:110)) return; lastRepeat=t; }
+    nav(k);
+  }
+});
+document.addEventListener('keyup',function(e){
+  if(e.keyCode===K.OK){ if(F.skipOkUp||F.editing){ F.skipOkUp=false; okDown=false; return; } okDown=false; clearTimeout(okTimer); if(!holdFired) onOk(); }
+});
+
+/* pointer (Magic Remote): one delegated set of listeners */
+function up(t,cls){ while(t&&t!==stage){ if(t.classList&&t.classList.contains(cls)) return t; t=t.parentNode; } return null; }
+$('track').addEventListener('mouseover',function(e){
+  var c=up(e.target,'card'); if(!c||F.moving||F.zone==='settings'||F.zone==='menu') return;
+  var ci=+c.getAttribute('data-c'); if(F.zone==='shelf'&&ci===col()) return;
+  F.zone='shelf'; F.cols[F.tab]=ci;
+  var keep=S.scroll; S.scroll='edge'; applyFocus(); S.scroll=keep;
+});
+$('track').addEventListener('click',function(e){ var c=up(e.target,'card'); if(!c||F.zone!=='shelf') return; if(F.moving){ endMove(); return; } launch(curTab().ids[col()],c); });
+$('track').addEventListener('contextmenu',function(e){ e.preventDefault(); if(F.zone==='shelf'&&!F.moving) openMenu(); });
+$('tabs').addEventListener('click',function(e){ var t=up(e.target,'tab'); if(!t) return; switchTab(tabEls.indexOf(t)); });
+$('dock').addEventListener('mouseover',function(e){ var p=up(e.target,'pill'); if(!p||F.zone==='settings'||F.zone==='menu') return; F.zone='dock'; F.dock=pillEls.indexOf(p); applyFocus(); });
+$('dock').addEventListener('click',function(e){ var p=up(e.target,'pill'); if(p) launch(DOCK[pillEls.indexOf(p)],null); });
+$('gear').addEventListener('click',openSettings);
+$('tvset').addEventListener('click',openTvSettings);
+['tvset','gear'].forEach(function(n,i){ $(n).addEventListener('mouseenter',function(){ if(F.zone!=='settings'&&F.zone!=='menu'){ F.zone='top'; F.top=i; applyFocus(); } }); });
+$('scrim').addEventListener('click',closeSettings);
+stage.addEventListener('click',function(e){ if(F.zone==='menu'&&!$('menu').contains(e.target)){ closeMenu(); applyFocus(); } });
+
+/* ---------- coming back to the front ---------- */
+function onReturn(){ hideZoom(); tick(); wxRefresh(false); haLoad(false); if(ON_TV) loadTvApps(false); bdKey=null; paintBackdrop(); if(F.tab==='recent'||(S.recent||[]).length) render(); }
+/* with handlesRelaunch the app has to bring itself forward, or it stays hidden behind LG's launcher */
+function bringToFront(){
+  try{ if(window.webOSSystem&&typeof webOSSystem.activate==='function'){ webOSSystem.activate(); return 'webOSSystem'; } }catch(e){}
+  try{ if(window.PalmSystem&&typeof PalmSystem.activate==='function'){ PalmSystem.activate(); return 'PalmSystem'; } }catch(e){}
+  return 'none';
+}
+document.addEventListener('webOSRelaunch',function(){
+  dlog('relaunched - bringing Halcyon to the front via',bringToFront());
+  if(F.zone==='settings') closeSettings();
+  closeMenu(); F.moving=null; F.zone=TABS.length?'shelf':'top'; onReturn(); applyFocus(true);
+});
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) onReturn(); });
+
+/* ---------- fit and boot ---------- */
+function fit(){
+  SCALE=Math.min(window.innerWidth/1920,window.innerHeight/1080);
+  if(Math.abs(SCALE-1)<.001){ SCALE=1; stage.style.left=stage.style.top='0'; stage.style.transform='none'; }
+  else { stage.style.left=stage.style.top=''; stage.style.transform='translate(-50%,-50%) scale('+SCALE+')'; }
+}
+window.addEventListener('resize',fit);
+fit(); applySettings();
+dlog('Halcyon '+VERSION+' starting, window '+window.innerWidth+'x'+window.innerHeight+(ON_TV?' (TV)':' (preview)'));
+if(ON_TV){
+  var cached=readJSON(K_APPS);
+  if(cached&&cached.length){ appSig=JSON.stringify(cached); setApps(cached,'tv'); render(); resolveIcons(); dlog('showing '+cached.length+' saved apps while refreshing'); }
+  else render();
+  loadTvApps(false);
+  setTimeout(function(){ if(SOURCE==='none'&&loading) banner('Still reading your app list…'); },6000);
+} else { setApps(demoApps(),'demo'); render(); }
+$('phShade').style.backgroundColor='rgba(0,0,0,'+(S.dim/100)+')';
+if(isPhoto()){
+  var last=S.wpLast;
+  if(last&&last.mode===S.backdrop&&last.url){ var bim=new Image(); bim.onload=function(){ wpShow(last); }; bim.onerror=function(){ wpNext(); }; bim.src=last.url; }
+  else wpNext();
+}
+paintBackdrop(); wxRefresh(false); haLoad(false);
+requestAnimationFrame(function(){ requestAnimationFrame(function(){ stage.classList.remove('boot'); }); });
+/* test hook: the simulated-TV tests read state through this */
+window.__halcyon={F:F,S:function(){ return S; },TABS:function(){ return TABS; },DOCK:function(){ return DOCK; },sky:skyNow};
+})();
+</script>
