@@ -54,7 +54,8 @@ async def main():
         # weather: open settings from the top button, Weather page, type a place
         ctx, pg, errs = await page_at(b, 20, 10)
         ev = lambda js: pg.evaluate(js)
-        await pg.keyboard.press('ArrowUp'); await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(300)
+        for _ in range(3): await pg.keyboard.press('ArrowUp')     # tabs, peek, gear
+        await pg.wait_for_timeout(300)
         await pg.keyboard.press('Enter'); await pg.wait_for_timeout(600)
         pages = await ev("Array.prototype.map.call(document.querySelectorAll('#s-list .si>span:first-child'),function(e){return e.textContent})")
         print('pages', pages)

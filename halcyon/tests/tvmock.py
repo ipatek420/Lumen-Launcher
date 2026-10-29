@@ -23,10 +23,12 @@ def tv_mock(launch_points, devices, files=None, curl=None):
     return """
 window.__calls=[];
 (function(){
-var LPS=%s, DEVS=%s, FILES=%s, CURL=%s;
+/* window.__tv lets a test change what the TV reports (unplug a source, fail the input list) mid-run */
+var T=window.__tv={LPS:%s, DEVS:%s, FILES:%s, CURL:%s, inputsFail:false};
+var FILES=T.FILES, CURL=T.CURL;
 function ok(u){
-  if(/listLaunchPoints/.test(u)) return {returnValue:true,launchPoints:LPS};
-  if(/getAllInputStatus/.test(u)) return {returnValue:true,devices:DEVS};
+  if(/listLaunchPoints/.test(u)) return {returnValue:true,launchPoints:T.LPS};
+  if(/getAllInputStatus/.test(u)) return T.inputsFail?{returnValue:false,errorText:'eim not ready'}:{returnValue:true,devices:T.DEVS};
   return {returnValue:true};
 }
 window.PalmServiceBridge=function(){ var self=this; this.call=function(uri,p){

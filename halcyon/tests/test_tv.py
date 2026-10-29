@@ -59,7 +59,7 @@ async def main():
         text = await ev("document.getElementById('stage').innerText")
         assert 'stream.dark' not in text and 'webosbrew' not in text, 'package id on screen'
 
-        # navigation: Right moves along the shelf, Up reaches the tabs, Right switches tab, Up again the top buttons
+        # navigation: Right moves along the shelf, Up reaches the tabs, Right switches tab
         await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(300)
         assert await ev("window.__halcyon.F.cols.fav") == 1
         await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(300)
@@ -67,7 +67,23 @@ async def main():
         await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(500)
         assert await ev("window.__halcyon.F.tab") == 'all'
         assert await ev("document.getElementById('title').textContent") == 'All apps'
+        # the pill behind the focused tab is a true pill: sized in px, never scaled, radius half its height
+        pill = await ev("(function(){var p=document.getElementById('tabpill'),c=getComputedStyle(p);return [p.offsetHeight,parseFloat(c.borderTopLeftRadius),c.transform]})()")
+        print('tab pill', pill); assert pill[1] * 2 == pill[0] and 'matrix(1, 0, 0, 1' in pill[2], pill
         await pg.screenshot(path=str(SHOTS/'tv_tabs.png'))
+
+        # Up again: the peek. The shelf slides down and fades to show the sky, nothing is focused
+        await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(800)
+        assert await ev("window.__halcyon.F.zone") == 'peek'
+        assert 'z-peek' in await ev("document.getElementById('stage').className")
+        assert await ev("getComputedStyle(document.getElementById('hero')).opacity") == '0'
+        assert not await ev("!!document.querySelector('.tbtn.focus,.card.focus,.tab.focus,.pill.focus')")
+        await pg.screenshot(path=str(SHOTS/'tv_peek.png'))
+        # OK from the peek returns to the cards; Up, Up, Up comes back to it and on to the gear
+        await pg.keyboard.press('Enter'); await pg.wait_for_timeout(400)
+        assert await ev("window.__halcyon.F.zone") == 'shelf'
+        for _ in range(2): await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(150)
+        assert await ev("window.__halcyon.F.zone") == 'peek'
         await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(500)
         assert await ev("window.__halcyon.F.zone") == 'top'
         assert await ev("document.querySelector('.tbtn.focus').id") == 'gear'
@@ -78,27 +94,28 @@ async def main():
         cmds = root_cmds(await ev('window.__calls'))
         print('TV settings', cmds); assert any('com.palm.app.settings' in c for c in cmds)
 
-        # Down, Down: back to the shelf on the All apps tab; launch the focused app (direct denied -> root)
-        await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(200)
-        await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(400)
-        assert await ev("window.__halcyon.F.zone") == 'shelf'
+        # Down retraces: top -> peek -> tabs -> shelf; launch the focused app (direct denied -> root)
+        for z in ('peek', 'tabs', 'shelf'):
+            await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(250)
+            assert await ev("window.__halcyon.F.zone") == z, z
         first = await ev("window.__halcyon.TABS().filter(function(t){return t.key==='all'})[0].ids[0]")
         await ev('window.__calls=[]')
         await pg.keyboard.press('Enter'); await pg.wait_for_timeout(1200)
         cmds = root_cmds(await ev('window.__calls'))
         print('launch', cmds); assert any('applicationManager/launch' in c and first in c for c in cmds)
 
-        # Recent: coming back to Halcyon (relaunch), the launched app is in a Recent tab and the hero says when it was opened
+        # Recent: coming back to Halcyon (relaunch), the launched app is in a Recent tab, the first tab
         await ev("document.dispatchEvent(new Event('webOSRelaunch'))"); await pg.wait_for_timeout(800)
         assert await ev('window.__activated') == 1, 'relaunch must call webOSSystem.activate()'
-        assert 'recent' in await ev("window.__halcyon.TABS().map(function(t){return t.key})")
-        # tabs are Favorites, Recent, All apps: Up from All apps, Left to Recent, Down into it
-        assert await ev("window.__halcyon.TABS().map(function(t){return t.key}).join()") == 'fav,recent,all'
+        assert await ev("window.__halcyon.TABS().map(function(t){return t.key}).join()") == 'recent,fav,all'
         await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(200)
-        await pg.keyboard.press('ArrowLeft'); await pg.wait_for_timeout(200)
+        await pg.keyboard.press('ArrowLeft'); await pg.keyboard.press('ArrowLeft'); await pg.wait_for_timeout(200)
         await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(600)
         tab, desc = await ev("[window.__halcyon.F.tab, document.getElementById('desc').textContent]")
-        print('recent hero', tab, repr(desc)); assert tab == 'recent' and desc.startswith('Last opened just now')
+        print('recent hero', tab, repr(desc)); assert tab == 'recent' and desc == '', 'no "last opened" line'
+        # Back on the shelf returns to Favorites, wherever it sits
+        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(400)
+        assert await ev("window.__halcyon.F.tab") == 'fav'
 
         # the dock: Down from the shelf, OK switches input through root
         await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(500)
@@ -110,19 +127,39 @@ async def main():
         assert any('com.webos.app.hdmi1' in c for c in cmds), cmds
         await pg.screenshot(path=str(SHOTS/'tv_dock.png'))
 
-        # options menu: Up to the shelf, hold OK, Hide removes the app from the shelf
+        # a source unplugged from the TV disappears on the next reload (here: coming back to Halcyon)
+        dock = lambda: ev("Array.prototype.map.call(document.querySelectorAll('#dock .pill'),function(e){return e.textContent})")
+        await ev("window.__tv.DEVS[2].connected=false; document.dispatchEvent(new Event('visibilitychange'))"); await pg.wait_for_timeout(1500)
+        print('dock after unplugging Apple TV', await dock()); assert await dock() == ['PS5']
+        await ev("window.__tv.DEVS[2].connected=true; document.dispatchEvent(new Event('visibilitychange'))"); await pg.wait_for_timeout(1500)
+        assert await dock() == ['PS5', 'Apple TV']
+        # if the TV can't be asked, the last list stays, and the log says so
+        await ev("window.__tv.inputsFail=true; document.dispatchEvent(new Event('visibilitychange'))"); await pg.wait_for_timeout(1500)
+        assert await dock() == ['PS5', 'Apple TV']
+        await ev("window.__tv.inputsFail=false")
+
+        # hold OK on a source in the dock: Hide removes it from the dock
+        await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(300)
+        await pg.keyboard.down('Enter'); await pg.wait_for_timeout(700); await pg.keyboard.up('Enter'); await pg.wait_for_timeout(300)
+        items = await ev("Array.prototype.map.call(document.querySelectorAll('#menu .mi'),function(e){return e.textContent})")
+        print('dock menu', items); assert items == ['Switch to it', 'Hide this source', 'Cancel'], items
+        await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(400)
+        assert await dock() == ['PS5'] and await ev("window.__halcyon.F.zone") == 'dock'
+
+        # options menu on a card: Up to the shelf, hold OK
         await pg.keyboard.press('ArrowUp'); await pg.wait_for_timeout(300)
         await pg.keyboard.down('Enter'); await pg.wait_for_timeout(700); await pg.keyboard.up('Enter'); await pg.wait_for_timeout(300)
         items = await ev("Array.prototype.map.call(document.querySelectorAll('#menu .mi'),function(e){return e.textContent})")
-        print('menu', items); assert 'Remove from Recent' in items and 'Hide' in items
+        print('menu', items); assert 'Hide' in items and 'Move' in items
         await pg.screenshot(path=str(SHOTS/'tv_menu.png'))
         await pg.keyboard.press('Escape'); await pg.wait_for_timeout(300)
         assert await ev("window.__halcyon.F.zone") == 'shelf'
 
-        # debug log opens with 0 and shows the root fallback
+        # debug log opens with 0: root fallback, and what the TV reported for each port
         await pg.keyboard.press('0'); await pg.wait_for_timeout(200)
         log = await ev("document.querySelector('#debug pre').textContent")
         assert 'direct call failed' in log and 'root call OK' in log
+        assert 'TV reports HDMI_1 connected=true' in log and 'keeping the last list' in log
         await pg.keyboard.press('0')
 
         print('errors', errs); assert not errs

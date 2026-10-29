@@ -1,6 +1,6 @@
 # Halcyon: notes for contributors (and coding agents)
 
-A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.halcyon`. Version **1.0.0**. Same platform, same hard-won rules; different layout, type and personality. Read `../CLAUDE.md` first: its "webOS rules learned the hard way" all apply here.
+A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.halcyon`. Version **1.1.0**. Same platform, same hard-won rules; different layout, type and personality. Read `../CLAUDE.md` first: its "webOS rules learned the hard way" all apply here.
 
 ## Design
 
@@ -8,9 +8,10 @@ A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.
 - **Type:** Fraunces (300, 300 italic, 400) for the greeting, clock, titles, card names; Manrope (400–700) for everything else. Bundled by `build.py` from `@fontsource`.
 - **Palette:** warm ink `#f4f1ea` on near-black `#05070d`; default accent Sunlit `#f2c47e`; Auto accent follows the focused app (Lumen's `readableAccent`, clamped l .68–.78).
 - **Layout, bottom up** (`layout()`): dock (bottom 60 px), card track with labels, tabs 80 px above the track, hero anchored by its *bottom* 44 px above the tabs, so it never collides with tall cards. Greeting top left, clock and two buttons top right, hints right-aligned on the tab line.
-- **One shelf under tabs** instead of Lumen's stacked rows: Favorites, Recent (when non-empty), All apps. Only one track is in the DOM at a time.
-- **Dock:** inputs ("Sources") and Home Assistant tiles (titled by the tile file's `title`) as pills.
-- **Recent:** `noteUse()` on launch keeps `S.recent` (14, newest first) and `S.used[id]=[ts,count]`; the hero says "Last opened today at 8:14 PM · 3 times" because LG gives apps no descriptions. The shelf re-renders on return (`onReturn`), not at launch, so nothing re-lays out under the zoom.
+- **One shelf under tabs** instead of Lumen's stacked rows: Recent (when non-empty), Favorites, All apps (user's order, 1.1). Halcyon opens on Favorites; Back on the shelf returns there. Only one track is in the DOM at a time.
+- **Dock:** inputs ("Sources") and Home Assistant tiles (titled by the tile file's `title`) as pills. Hold OK on a pill: switch/run, or hide it (`S.hidden`, unhidden from Apps → Hidden apps & sources).
+- **Tab pill:** sized in px (`width`) and moved with `transform`, never scaled: `scaleX` on a rounded box squashed its ends (user: "not quite a pill"). It only resizes on a tab change.
+- **Recent:** `noteUse()` on launch keeps `S.recent` (14, newest first). The shelf re-renders on return (`onReturn`), not at launch, so nothing re-lays out under the zoom. A "Last opened …" hero line was tried in 1.0 and removed in 1.1 (user: unnecessary); apps without a description show none.
 
 ## The sky (`skyNow()`, `paintSky()`)
 
@@ -28,11 +29,15 @@ Findings from getting there:
 
 ## Zones and keys
 
-`F.zone`: `shelf` · `tabs` · `dock` · `top` · `menu` · `settings`. Up: shelf → tabs → top. Down: top → tabs → shelf → dock. Left/Right on tabs switches the shelf immediately. Back: dock/tabs/top → shelf; on the shelf, first card, then first tab. An empty shelf (apps still loading) parks focus on the dock or top (`F.parked`) and returns it when apps arrive (first-boot bug caught by `test_tv.py`). Hold OK/Yellow: options menu; Red: settings; Green: next photo; 0/Blue: debug log.
+`F.zone`: `shelf` · `tabs` · `peek` · `top` · `dock` · `menu` · `settings`. Up: shelf → tabs → peek → top. Down: top → peek → tabs → shelf → dock. **Peek** (Lumen's two-step Up, restored in 1.1 at the user's request): `#stage.z-peek` slides the shelf down 170 px and fades it to .16, hides hero/hints/dock and lightens the photo shade, so the sky or photo shows; OK or Back returns to the cards. `z-top` keeps the shelf aside and the hero describes the focused button. Left/Right on tabs switches the shelf immediately. Back: dock/tabs/top → shelf; on the shelf, first card, then first tab. An empty shelf (apps still loading) parks focus on the dock or top (`F.parked`) and returns it when apps arrive (first-boot bug caught by `test_tv.py`). Hold OK/Yellow: options menu; Red: settings; Green: next photo; 0/Blue: debug log.
 
 ## Storage
 
 `halcyon.settings.v1` (S), `halcyon.apps.v1` (last app list, instant start), `halcyon.colors.v1` (icon edge analysis), `halcyon.icons.v1` (root-read icons, capped ~3.5 MB), `halcyon.wx.v1` (forecast incl. sunrise/sunset), `halcyon.ha.v1` (tiles), `halcyon.wp.<source>` (photo lists). All access wrapped in try/catch.
+
+## Inputs
+
+Rule 2 of `../CLAUDE.md`: connected HDMI only, and a port whose connection the TV doesn't report is shown. Every load logs what the TV said per port (`inputs: N shown; TV reports HDMI_1 connected=true … | …`). If the input list can't be read, the last list is kept and a manual reload says so (1.0 claimed "sources loaded" with the old list). A user reported (1.0, real TV) a removed HDMI source that stayed after reload and reboot: not reproduced on the simulated TV, where an unplugged port leaves the dock on the next load; the log line will tell whether the TV still reports it connected. Workaround: hide the pill.
 
 ## Home Assistant
 
@@ -42,7 +47,7 @@ Lumen's protocol unchanged (`../docs/home-assistant.md`): `GET /local/halcyon.js
 
 ```sh
 npm install && python3 build.py [--package]
-HALCYON_CHROMIUM=/path/to/chrome python3 tests/test_tv.py   # and test_scenes, test_sky_settings, test_performance
+HALCYON_CHROMIUM=/path/to/chrome python3 tests/test_tv.py   # and test_scenes, test_sky_settings, test_wallpapers, test_performance
 ```
 
 `tests/tvmock.py` is the simulated TV (direct calls denied; root exec answers luna-send, cat, curl). Look at `tests/shots/` after every change.
@@ -50,4 +55,6 @@ HALCYON_CHROMIUM=/path/to/chrome python3 tests/test_tv.py   # and test_scenes, t
 ## Open items
 
 - **Never run on real hardware yet.** Everything above is verified on the simulated TV only. First things to check on the TV: fonts (Fraunces italic), the clip window with Large cards, sky repaint cost on the real GPU, the `z-top` shelf slide.
-- Dropped from Lumen on purpose: per-app artwork (`bgImage`) on cards, the light sweep, Reddit/custom-topic wallpapers, the Android shell hooks.
+- **Open (1.1):** the removed HDMI source above: ask for the `inputs:` debug log line.
+- Photo topics (1.1): all of Lumen's are back (Commons topics, custom topic, subreddit via root curl RSS, Bing, NASA). Not ported: photo quality, slow drift, blur photos, the gradient wallpapers.
+- Dropped from Lumen on purpose: per-app artwork (`bgImage`) on cards, the light sweep, the Android shell hooks.

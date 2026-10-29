@@ -73,14 +73,15 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 /* ---------- shelf: tabs, then one track of cards ---------- */
 #shelf{position:absolute;left:0;right:0;top:0;z-index:3;transition:transform .6s cubic-bezier(.25,.8,.25,1),opacity .6s ease;will-change:transform,opacity}
 #tabs{position:absolute;left:120px;height:46px;display:flex;align-items:flex-start}
-.tab{position:relative;font-size:24px;font-weight:600;color:var(--faint);margin-right:44px;height:46px;line-height:34px;transition:color var(--dur);white-space:nowrap}
+.tab{position:relative;font-size:24px;font-weight:600;color:var(--faint);margin-right:48px;height:46px;line-height:34px;transition:color var(--dur);white-space:nowrap}
 .tab.on{color:var(--ink)}
 .tab .n{font-size:17px;font-weight:600;color:var(--faint);margin-left:9px;font-variant-numeric:tabular-nums}
 .tab.focus{color:var(--pill-ink)}
 .tab.focus .n{color:rgba(17,19,27,.55)}
 /* the pill behind a focused tab and the underline under the open tab: both moved with transform only */
-#tabpill{position:absolute;left:-20px;top:-8px;height:50px;width:100px;border-radius:25px;background:var(--pill);transform-origin:0 0;opacity:0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur);will-change:transform,opacity;z-index:-1}
-#tabbar{position:absolute;left:0;top:42px;height:3px;width:100px;border-radius:2px;background:var(--accent);transform-origin:0 0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur),background-color .6s;will-change:transform}
+/* sized in px rather than scaled, so both ends stay perfect half circles; it only resizes when the tab changes */
+#tabpill{position:absolute;left:-22px;top:-8px;height:50px;width:100px;border-radius:25px;background:var(--pill);opacity:0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),width var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur);will-change:transform,opacity;z-index:-1}
+#tabbar{position:absolute;left:0;top:42px;height:3px;width:100px;border-radius:2px;background:var(--accent);transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),width var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur),background-color .6s;will-change:transform}
 #stage.z-tabs #tabpill{opacity:1}
 #stage.z-tabs #tabbar{opacity:0}
 #tabs .tab:first-child{margin-left:0}
@@ -143,8 +144,11 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 .pill.ok::after{content:"";position:absolute;right:10px;top:10px;width:9px;height:9px;border-radius:50%;background:#7fe0a6}
 
 /* ---------- zones: Up to the top buttons lets the sky through ---------- */
-#stage.z-top #shelf{transform:translate3d(0,150px,0);opacity:.14}
-#stage.z-top #dock{opacity:0}
+/* peek (Up from the tabs): the shelf slides down and fades so the sky or photo shows; the top buttons keep it aside */
+#stage.z-peek #shelf,#stage.z-top #shelf{transform:translate3d(0,170px,0);opacity:.16}
+#stage.z-peek #dock,#stage.z-top #dock{opacity:0}
+#stage.z-peek #hero{opacity:0}
+#stage.z-peek #phShade{opacity:.45}
 #stage.z-top #phShade{opacity:.5}
 #stage.z-top #credit{opacity:0}
 #stage.speed-off #shelf,#stage.speed-off #hero,#stage.speed-off #dock{transition:none}
@@ -154,7 +158,7 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 #hints .k{display:inline-block;padding:3px 10px;margin-right:9px;border-radius:8px;background:rgba(255,255,255,.1);color:var(--muted);font-weight:700;font-size:15px;letter-spacing:.06em}
 #hints .h{margin-right:30px}
 #hints .h:last-child{margin-right:0}
-#stage.no-hints #hints,#stage.z-top #hints{opacity:0}
+#stage.no-hints #hints,#stage.z-top #hints,#stage.z-peek #hints{opacity:0}
 #banner{position:absolute;left:120px;top:200px;max-width:1150px;padding:14px 22px;border-radius:14px;background:rgba(255,170,110,.16);color:#ffd9bd;font-size:21px;line-height:1.4;z-index:6}
 #toast{position:absolute;left:50%;top:60px;transform:translate3d(-50%,-30px,0);padding:16px 30px;border-radius:999px;background:var(--panel);box-shadow:0 20px 50px rgba(0,0,0,.45);font-size:23px;font-weight:600;opacity:0;transition:opacity .3s,transform .3s;z-index:30;white-space:nowrap}
 #toast.on{opacity:1;transform:translate3d(-50%,0,0)}
@@ -265,7 +269,7 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 (function(){
 'use strict';
 if(typeof Object.assign!=='function'){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];if(s)for(var k in s)if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}return t;};}
-var SELF_ID='org.webosbrew.halcyon', VERSION='1.0';
+var SELF_ID='org.webosbrew.halcyon', VERSION='1.1';
 var K_SET='halcyon.settings.v1', K_APPS='halcyon.apps.v1', K_COLORS='halcyon.colors.v1', K_ICONS='halcyon.icons.v1', K_WX='halcyon.wx.v1', K_HA='halcyon.ha.v1';
 var stage=document.getElementById('stage');
 var $=function(id){ return document.getElementById(id); };
@@ -347,20 +351,24 @@ var HA_COLORS={light:['#ffd166','#5a4410'],lamp:['#ffb37a','#5a2f10'],fan:['#7ad
 
 /* ---------- settings ---------- */
 var ACCENTS=[['auto','Auto'],['#f2c47e','Sunlit'],['#ff9b85','Coral'],['#ff9ec4','Rose'],['#c9a8ff','Lilac'],['#8cc8ff','Sky'],['#6fe0d0','Lagoon'],['#b5dc8f','Sage'],['#f4f1ea','Pearl']];
-var DEFAULTS={backdrop:'sky',tint:true,dim:20,wpEvery:'60',wpCredit:true,wpLast:null,
+var DEFAULTS={backdrop:'sky',tint:true,dim:20,wpEvery:'60',wpCredit:true,wpLast:null,wpTopic:'waterfall',wpSub:'EarthPorn',
   shape:'wide',size:'m',bigFav:true,radius:22,labels:'focus',focus:'glow',scale:108,accent:'auto',
   greet:true,name:'',clock:'12',hints:true,weather:true,wxPlace:'',wxUnits:'f',
   recentTab:true,scroll:'pinned',dock:true,haAddr:'',haDock:true,
   quality:'full',speed:'normal',fps:false,
-  favorites:null,favSource:'',order:{},hidden:[],recent:[],used:{}};
+  favorites:null,favSource:'',order:{},hidden:[],recent:[]};
 var S=Object.assign({},DEFAULTS,readJSON(K_SET)||{});
 function saveS(){ writeJSON(K_SET,S); }
 function valName(key){ var o=OPT_BY[key]; if(!o) return ''; var v=S[key], arr=o.values||o.swatch||[]; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) return arr[i][1]; return ''; }
-function isPhoto(){ return S.backdrop==='bing'||S.backdrop==='apod'||S.backdrop==='commons'; }
+var PHOTO_SOURCES={landscapes:1,astro:1,botanical:1,nature:1,sea:1,clouds:1,abstract:1,topic:1,bing:1,apod:1,reddit:1};
+if(S.backdrop==='commons') S.backdrop='landscapes';           /* 1.0 name for the landscapes source */
+function isPhoto(){ return !!PHOTO_SOURCES[S.backdrop]; }
 /* the settings are pages: headers ({h, sum}) are listed first; OK opens one, Back returns */
 var OPTIONS=[
  {h:'Backdrop',sum:function(){ return valName('backdrop'); }},
- {key:'backdrop',label:'Backdrop',values:[['sky','Living sky'],['app','App colours'],['still','Still ink'],['bing','Bing photo of the day'],['apod','NASA picture of the day'],['commons','Landscapes']]},
+ {key:'backdrop',label:'Backdrop',values:[['sky','Living sky'],['app','App colours'],['still','Still ink'],['landscapes','Landscapes'],['astro','Astrophotography'],['botanical','Botanical'],['nature','Nature'],['sea','Sea & coast'],['clouds','Sky & clouds'],['abstract','Abstract & fractals'],['bing','Bing photo of the day'],['apod','NASA picture of the day'],['topic','Custom topic'],['reddit','Subreddit']]},
+ {key:'wpTopic',label:'Topic',text:1,ph:'mountains',when:function(){ return S.backdrop==='topic'; }},
+ {key:'wpSub',label:'Subreddit  r/',text:1,ph:'EarthPorn',when:function(){ return S.backdrop==='reddit'; }},
  {key:'tint',label:'Tint with the focused app',bool:1,when:function(){ return S.backdrop==='sky'; }},
  {key:'_nextwp',label:'Next photo',action:1,when:isPhoto},
  {key:'wpEvery',label:'Change photo every',values:[['15','15 minutes'],['60','Hour'],['1440','Day'],['0','Never']],when:isPhoto},
@@ -392,7 +400,7 @@ var OPTIONS=[
  {h:'Apps',sum:function(){ var n=(S.favorites||[]).filter(function(id){ return APPS[id]; }).length; return n+' favorite'+(n===1?'':'s'); }},
  {key:'_favs',label:'Choose favorites',action:1},
  {key:'_refresh',label:'Reload apps and sources',action:1},
- {key:'_hidden',label:'Hidden apps',action:1},
+ {key:'_hidden',label:'Hidden apps & sources',action:1},
  {key:'_recent',label:'Clear Recent',action:1},
  {h:'Home Assistant',sum:function(){ return haStatusText(); }},
  {key:'haAddr',label:'Address',text:1,ph:'192.168.1.20:8123'},
@@ -524,15 +532,15 @@ function orderedAll(){
 function buildModel(){
   TABS=[];
   var fav=(S.favorites||[]).filter(function(id){ return APPS[id]&&!isHidden(id); });
-  if(fav.length) TABS.push({key:'fav',title:'Favorites',ids:fav});
   var rec=(S.recent||[]).filter(function(id){ return APPS[id]&&!isHidden(id); });
   if(S.recentTab&&rec.length) TABS.push({key:'recent',title:'Recent',ids:rec});
+  if(fav.length) TABS.push({key:'fav',title:'Favorites',ids:fav});
   var all=orderedAll().filter(function(id){ return !isHidden(id); });
   if(all.length) TABS.push({key:'all',title:'All apps',ids:all});
   DOCK=[];
   if(S.dock){
-    INPUTS.forEach(function(id){ DOCK.push(id); });
-    if(S.haDock) HA_IDS.forEach(function(id){ DOCK.push(id); });
+    INPUTS.forEach(function(id){ if(!isHidden(id)) DOCK.push(id); });
+    if(S.haDock) HA_IDS.forEach(function(id){ if(!isHidden(id)) DOCK.push(id); });
   }
 }
 
@@ -645,7 +653,8 @@ function applyFocus(force){
   var z=F.zone, t=curTab();
   stage.classList.toggle('z-top',z==='top');
   stage.classList.toggle('z-tabs',z==='tabs');
-  stage.classList.toggle('z-shelf',z==='shelf'||z==='menu');
+  stage.classList.toggle('z-peek',z==='peek');
+  stage.classList.toggle('z-shelf',z==='shelf'||(z==='menu'&&F.menuFrom==='shelf'));
   $('tvset').classList.toggle('focus',z==='top'&&F.top===0);
   $('gear').classList.toggle('focus',z==='top'&&F.top===1);
   /* cards */
@@ -664,8 +673,9 @@ function applyFocus(force){
   var ti=tabIndex(), g=tabGeo[ti];
   tabEls.forEach(function(el,i){ el.classList.toggle('on',i===ti); el.classList.toggle('focus',z==='tabs'&&i===ti); });
   if(g){
-    $('tabbar').style.transform='translate3d('+g[0]+'px,0,0) scale('+(g[1]/100)+',1)';
-    $('tabpill').style.transform='translate3d('+g[0]+'px,0,0) scale('+((g[1]+40)/100)+',1)';
+    var tb=$('tabbar'), tp=$('tabpill');
+    tb.style.width=g[1]+'px'; tb.style.transform='translate3d('+g[0]+'px,0,0)';
+    tp.style.width=(g[1]+44)+'px'; tp.style.transform='translate3d('+g[0]+'px,0,0)';
   }
   /* dock */
   pillEls.forEach(function(el,i){ el.classList.toggle('focus',z==='dock'&&i===F.dock); });
@@ -695,24 +705,10 @@ function eyebrowFor(a){
   var fav=(S.favorites||[]).indexOf(a.id)>-1;
   return (a.category||(a.system?'System':'App'))+(fav?'  ·  Favorite':'');
 }
-/* LG gives no descriptions, so Halcyon says when you last used the app instead */
 function descFor(a){
   if(a.ha) return esc(a.desc||'Press OK to run it.');
-  if(a.desc) return esc(a.desc);
   if(a.input) return 'Press OK to switch to '+esc(a.title)+'.';
-  var u=S.used&&S.used[a.id];
-  if(!u) return 'Not opened from Halcyon yet.';
-  return 'Last opened '+whenText(u[0])+(u[1]>1?'  ·  '+u[1]+' times':'')+'.';
-}
-function whenText(ts){
-  var d=new Date(ts), n=new Date(), days=Math.round((new Date(n.getFullYear(),n.getMonth(),n.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
-  var mins=Math.round((n-d)/60000);
-  if(mins<2) return 'just now';
-  if(mins<60) return mins+' minutes ago';
-  if(days===0) return 'today at '+clockText(d,true);
-  if(days===1) return 'yesterday at '+clockText(d,true);
-  if(days<7) return 'on '+DAYS[d.getDay()];
-  return 'on '+MONTHS[d.getMonth()]+' '+d.getDate();
+  return a.desc?esc(a.desc):'';
 }
 function updateHero(force){
   var h=heroFor();
@@ -889,9 +885,46 @@ function paintBackdrop(){
 }
 setInterval(function(){ if(!document.hidden&&S.backdrop==='sky') paintBackdrop(); },60000);
 
-/* ---------- photo backdrops: Bing, NASA APOD, Wikimedia Commons featured landscapes ---------- */
+/* ---------- photo backdrops ----------
+   Wikimedia Commons featured pictures by topic (hand-picked, CC-licensed), a custom Commons topic, Bing's daily
+   photo, NASA's picture of the day, or a subreddit (RSS: Reddit closed its anonymous JSON in 2026). */
 var WP={list:null,key:'',i:0,shownAt:0,cur:null,busy:false,flip:false,on:false};
-function wpKey(){ return 'halcyon.wp.'+S.backdrop; }
+function wpKey(){
+  var k=S.backdrop;
+  if(k==='topic') k+=':'+String(S.wpTopic||'').toLowerCase();
+  if(k==='reddit') k+=':'+String(S.wpSub||'').toLowerCase();
+  return 'halcyon.wp.'+k;
+}
+var FP='incategory:Featured_pictures_on_Wikimedia_Commons ';
+var WP_QUERIES={
+  landscapes:['incategory:Featured_pictures_of_landscapes'],
+  astro:['incategory:Featured_pictures_of_astronomy'],
+  botanical:['incategory:Featured_pictures_of_plants'],
+  nature:['incategory:Featured_pictures_of_nature'],
+  sea:[FP+'sea',FP+'coast',FP+'ocean',FP+'waves'],
+  clouds:[FP+'clouds',FP+'sunset',FP+'aurora',FP+'sky'],
+  abstract:[FP+'fractal',FP+'abstract',FP+'"long exposure"',FP+'bokeh']
+};
+function commonsSearch(q,cb){
+  var base='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=50'+
+    '&prop=imageinfo&iiprop=url%7Csize%7Cextmetadata&iiextmetadatafilter=ObjectName%7CArtist&iiurlwidth=2560'+
+    '&gsrsearch='+encodeURIComponent(q+' filetype:bitmap filew:>1900');
+  var parse=function(j){
+    var out=[], pages=(j&&j.query&&j.query.pages)||{};
+    Object.keys(pages).forEach(function(k){
+      var p=pages[k], ii=p.imageinfo&&p.imageinfo[0]; if(!ii||!ii.width||!ii.height) return;
+      var r=ii.width/ii.height; if(r<1.3||r>2.7||ii.width<1900) return;            /* landscape photos only */
+      var m=ii.extmetadata||{};
+      out.push({url:ii.thumburl||ii.url,title:stripTags(m.ObjectName&&m.ObjectName.value)||String(p.title||'').replace(/^File:/,'').replace(/\.[a-z0-9]+$/i,'').replace(/_/g,' '),by:stripTags(m.Artist&&m.Artist.value),src:'Wikimedia Commons'});
+    });
+    return out;
+  };
+  /* older search back-ends may not support random order */
+  getJSON(base+'&gsrsort=random',function(j,e){
+    if(j&&!j.error) return cb(parse(j),null);
+    getJSON(base,function(j2,e2){ if(j2&&!j2.error) cb(parse(j2),null); else cb(null,e2||(j2&&j2.error&&j2.error.info)||e); });
+  });
+}
 function stripTags(s){ var d=document.createElement('div'); d.innerHTML=String(s||''); return (d.textContent||'').replace(/\s+/g,' ').trim(); }
 function wpFetch(cb){
   var s=S.backdrop;
@@ -910,24 +943,20 @@ function wpFetch(cb){
         return {url:a.hdurl||a.url,title:a.title||'Astronomy Picture of the Day',by:a.copyright?'© '+String(a.copyright).replace(/\s+/g,' ').trim():'NASA',src:'NASA',check:1};
       }),null);
     });
-  } else {
-    var base='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=50'+
-      '&prop=imageinfo&iiprop=url%7Csize%7Cextmetadata&iiextmetadatafilter=ObjectName%7CArtist&iiurlwidth=2560'+
-      '&gsrsearch='+encodeURIComponent('incategory:Featured_pictures_of_landscapes filetype:bitmap filew:>1900');
-    var parse=function(j){
-      var out=[], pages=(j&&j.query&&j.query.pages)||{};
-      Object.keys(pages).forEach(function(k){
-        var p=pages[k], ii=p.imageinfo&&p.imageinfo[0]; if(!ii||!ii.width||!ii.height) return;
-        var r=ii.width/ii.height; if(r<1.3||r>2.7||ii.width<1900) return;
-        var m=ii.extmetadata||{};
-        out.push({url:ii.thumburl||ii.url,title:stripTags(m.ObjectName&&m.ObjectName.value)||String(p.title||'').replace(/^File:/,'').replace(/\.[a-z0-9]+$/i,'').replace(/_/g,' '),by:stripTags(m.Artist&&m.Artist.value),src:'Wikimedia Commons'});
+  } else if(s==='reddit'){
+    var sub=String(S.wpSub||'EarthPorn').replace(/^\/?r\//i,'').replace(/[^A-Za-z0-9_+]/g,'');
+    getText('https://www.reddit.com/r/'+sub+'/top/.rss?t=month&limit=60',function(t,e){
+      if(!t) return cb(null,e);
+      var list=[];
+      t.split(/<entry>/).slice(1).forEach(function(en){
+        var tm=/<title>([\s\S]*?)<\/title>/.exec(en), um=/https:\/\/(?:i\.redd\.it|i\.imgur\.com)\/[A-Za-z0-9_-]+\.(?:jpe?g|png)/i.exec(en.replace(/&amp;/g,'&'));
+        if(um) list.push({url:um[0],title:stripTags(tm?tm[1].replace(/&amp;/g,'&'):''),by:'r/'+sub,src:'Reddit',check:1});
       });
-      return out;
-    };
-    getJSON(base+'&gsrsort=random',function(j,e){
-      if(j&&!j.error) return cb(parse(j),null);
-      getJSON(base,function(j2,e2){ if(j2&&!j2.error) cb(parse(j2),null); else cb(null,e2||e); });
+      cb(list.length?list:null,list.length?null:(/<html/i.test(t)?'Reddit refused the request':'no image posts found'));
     });
+  } else {
+    var qs=s==='topic'?[FP+String(S.wpTopic||'mountains')]:(WP_QUERIES[s]||WP_QUERIES.landscapes), all=[], left=qs.length, errs=[];
+    qs.forEach(function(q){ commonsSearch(q,function(list,err){ if(list) all=all.concat(list); else errs.push(err); if(--left===0) cb(all.length?all:null,errs.join('; ')||'no matching photos'); }); });
   }
 }
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
@@ -935,7 +964,7 @@ function wpList(cb){
   var key=wpKey();
   if(WP.list&&WP.key===key&&WP.list.length) return cb(true);
   var c=readJSON(key);
-  if(c&&c.items&&c.items.length&&Date.now()-c.t<(S.backdrop==='commons'?24:6)*3600e3){ WP.list=c.items; WP.key=key; WP.i=c.i||0; return cb(true); }
+  if(c&&c.items&&c.items.length&&Date.now()-c.t<(S.backdrop==='bing'||S.backdrop==='apod'?6:24)*3600e3){ WP.list=c.items; WP.key=key; WP.i=c.i||0; return cb(true); }
   dlog('wallpaper: loading '+S.backdrop);
   wpFetch(function(list,err){
     if(wpKey()!==key) return cb(false);
@@ -1211,13 +1240,15 @@ function loadTvApps(manual){
     if(--pending>0) return;
     loading=false;
     if(!apps&&SOURCE==='tv') apps=ALL.map(function(id){ return APPS[id]; });
-    if(!inputs&&SOURCE==='tv') inputs=INPUTS.map(function(id){ return APPS[id]; });
+    /* sources unreadable this time: keep the last list rather than lose them, but say so on a manual reload */
+    var staleInputs=!inputs&&SOURCE==='tv';
+    if(staleInputs) inputs=INPUTS.map(function(id){ return APPS[id]; });
     if(apps&&apps.length){
       var list=apps.concat(inputs||[]), sig=JSON.stringify(list);
       writeJSON(K_APPS,list); banner(null);
       if(sig!==appSig||SOURCE!=='tv'){ appSig=sig; setApps(list,'tv'); render(); }
       resolveIcons();
-      if(manual) toast(apps.length+' apps'+(inputs?', '+inputs.length+' sources':'')+' loaded');
+      if(manual) toast(staleInputs?apps.length+' apps loaded. Couldn\u2019t re-read sources: press 0 for details.':apps.length+' apps'+(inputs?', '+inputs.length+' sources':'')+' loaded');
       return;
     }
     if(SOURCE==='tv'){ if(manual) toast('Couldn’t reload apps. Press 0 for details.'); return; }
@@ -1233,7 +1264,13 @@ function loadTvApps(manual){
     });
   });
   lunaQuery('luna://com.webos.service.eim/getAllInputStatus',{},function(r){ return !!(r.devices||r.inputs); },function(r,err){
-    if(r){ inputs=inputListFrom(r); dlog('inputs: '+inputs.length+' connected HDMI'); } else dlog('inputs: could not read ('+err+')');
+    if(r){
+      inputs=inputListFrom(r);
+      /* what the TV says about every port, so a source that should have gone can be traced to the TV or to Halcyon */
+      dlog('inputs: '+inputs.length+' shown; TV reports '+(r.devices||r.inputs||[]).map(function(d){
+        return (d.id||d.port||'?')+' connected='+d.connected+(d.connectedStatus!==undefined?' status='+d.connectedStatus:'')+(d.activate!==undefined?' active='+d.activate:'')+' "'+(d.userName||d.label||d.deviceName||'')+'"';
+      }).join(' | '));
+    } else dlog('inputs: could not read ('+err+'), keeping the last list');
     done();
   });
 }
@@ -1348,8 +1385,6 @@ function stageRect(el){ var sr=stage.getBoundingClientRect(), r=el.getBoundingCl
 function hideZoom(){ var z=$('zoom'); z.classList.remove('go'); z.style.opacity='0'; }
 function noteUse(id){
   var a=APPS[id]; if(!a||a.input||a.ha) return;
-  var u=S.used||(S.used={}), prev=u[id]||[0,0];
-  u[id]=[Date.now(),prev[1]+1];
   S.recent=[id].concat((S.recent||[]).filter(function(x){ return x!==id; })).slice(0,14);
   saveS();
 }
@@ -1391,17 +1426,24 @@ function openTvSettings(){
   });
 }
 
-/* ---------- options menu (hold OK or the yellow button) ---------- */
+/* ---------- options menu (hold OK or the yellow button), on a card or on a dock pill ---------- */
 var menuItems=[];
 function openMenu(){
-  var t=curTab(); if(!t||!focusedCard) return;
-  var id=t.ids[col()], a=APPS[id], fav=(S.favorites||[]).indexOf(id)>-1;
-  menuItems=[{label:'Open',act:function(){ closeMenu(); launch(id,focusedCard); }}];
-  menuItems.push(fav?{label:'Remove from Favorites',act:function(){ S.favorites=S.favorites.filter(function(x){ return x!==id; }); saveS(); closeMenu(); render(); toast(a.title+' removed from Favorites'); }}
-                   :{label:'Add to Favorites',act:function(){ S.favorites=(S.favorites||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' added to Favorites'); }});
-  if(t.key==='fav'||t.key==='all') menuItems.push({label:'Move',act:function(){ closeMenu(); F.moving={tab:t.key,id:id}; applyFocus(); }});
-  if(t.key==='recent') menuItems.push({label:'Remove from Recent',act:function(){ S.recent=(S.recent||[]).filter(function(x){ return x!==id; }); saveS(); closeMenu(); render(); }});
-  if(!a.input) menuItems.push({label:'Hide',act:function(){ S.hidden=(S.hidden||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' hidden. Show it again in settings.'); }});
+  var fromDock=F.zone==='dock', t=curTab(), id, anchor;
+  if(fromDock){ id=DOCK[F.dock]; anchor=pillEls[F.dock]; }
+  else { if(!t||!focusedCard) return; id=t.ids[col()]; anchor=focusedCard.querySelector('.face'); }
+  var a=APPS[id]; if(!a||!anchor) return;
+  var fav=(S.favorites||[]).indexOf(id)>-1, hide=function(){ S.hidden=(S.hidden||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' hidden. Show it again in settings.'); };
+  menuItems=[{label:a.ha?'Run':a.input&&fromDock?'Switch to it':'Open',act:function(){ closeMenu(); launch(id,fromDock?null:focusedCard); }}];
+  if(fromDock){
+    menuItems.push({label:a.ha?'Hide this scene':'Hide this source',act:hide});
+  } else {
+    menuItems.push(fav?{label:'Remove from Favorites',act:function(){ S.favorites=S.favorites.filter(function(x){ return x!==id; }); saveS(); closeMenu(); render(); toast(a.title+' removed from Favorites'); }}
+                     :{label:'Add to Favorites',act:function(){ S.favorites=(S.favorites||[]).concat([id]); saveS(); closeMenu(); render(); toast(a.title+' added to Favorites'); }});
+    if(t.key==='fav'||t.key==='all') menuItems.push({label:'Move',act:function(){ closeMenu(); F.moving={tab:t.key,id:id}; applyFocus(); }});
+    if(t.key==='recent') menuItems.push({label:'Remove from Recent',act:function(){ S.recent=(S.recent||[]).filter(function(x){ return x!==id; }); saveS(); closeMenu(); render(); }});
+    if(!a.input) menuItems.push({label:'Hide',act:hide});
+  }
   menuItems.push({label:'Cancel',act:function(){ closeMenu(); applyFocus(); }});
   var m=$('menu');
   m.innerHTML='<div class="mh">'+esc(a.title)+'</div>'+menuItems.map(function(it,i){ return '<div class="mi" data-i="'+i+'">'+it.label+'</div>'; }).join('');
@@ -1409,14 +1451,14 @@ function openMenu(){
     el.addEventListener('mouseenter',function(){ F.mIdx=+el.getAttribute('data-i'); paintMenu(); });
     el.addEventListener('click',function(e){ e.stopPropagation(); menuItems[+el.getAttribute('data-i')].act(); });
   });
-  F.mIdx=0; F.zone='menu'; paintMenu();
-  var fr=stageRect(focusedCard.querySelector('.face'));
+  F.menuFrom=fromDock?'dock':'shelf'; F.mIdx=0; F.zone='menu'; paintMenu();
+  var fr=stageRect(anchor);
   m.style.left=Math.min(fr.l,1920-480)+'px';
   var top=fr.t-m.offsetHeight-30; if(top<40) top=fr.t+fr.h+30;
   m.style.top=top+'px'; m.classList.add('open');
 }
 function paintMenu(){ Array.prototype.forEach.call($('menu').querySelectorAll('.mi'),function(el,i){ el.classList.toggle('focus',i===F.mIdx); }); }
-function closeMenu(){ $('menu').classList.remove('open'); if(F.zone==='menu') F.zone='shelf'; }
+function closeMenu(){ $('menu').classList.remove('open'); if(F.zone==='menu') F.zone=F.menuFrom==='dock'&&DOCK.length?'dock':'shelf'; }
 function moveBy(dir){
   var t=curTab(), c=col(), n=c+dir; if(!t||n<0||n>=t.ids.length) return;
   var id=t.ids[c], other=t.ids[n], list;
@@ -1501,11 +1543,11 @@ function changeOpt(dir,isOk){
     if(o.key==='_debug'){ toggleDebug(); return; }
     if(o.key==='_haReload'){ haLoad(true); return; }
     if(o.key==='_refresh'&&ON_TV){ toast('Reloading apps…'); loadTvApps(true); }
-    if(o.key==='_hidden'&&(S.hidden||[]).length){ S.hidden=[]; saveS(); render(); toast('All apps are visible again'); }
+    if(o.key==='_hidden'&&(S.hidden||[]).length){ S.hidden=[]; saveS(); render(); toast('Everything is visible again'); }
     if(o.key==='_recent'){ S.recent=[]; saveS(); render(); toast('Recent cleared'); }
     if(o.key==='_reset'){
       if(!resetArmed){ resetArmed=true; clearTimeout(resetT); resetT=setTimeout(function(){ resetArmed=false; refreshOpt(); },3500); }
-      else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden,hiddenInit:S.hiddenInit,recent:S.recent,used:S.used}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); toast('Settings reset'); return; }
+      else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden,hiddenInit:S.hiddenInit,recent:S.recent}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); toast('Settings reset'); return; }
     }
     refreshOpt(); return;
   }
@@ -1541,6 +1583,9 @@ function endEdit(save){
   if(key==='haAddr'){ if(save){ S.haAddr=haAddr(val); saveS(); inp.value=S.haAddr; haLoad(true); } else inp.value=F.editOld||''; return; }
   if(key==='wxPlace'){ if(save&&val) wxSetPlace(val,inp); else inp.value=F.editOld||''; return; }
   if(key==='name'){ if(save){ S.name=val.slice(0,24); saveS(); inp.value=S.name; tick(); } else inp.value=F.editOld||''; return; }
+  if(key==='wpSub') val=val.replace(/^\/?r\//i,'').replace(/\s+/g,'');
+  if(save&&val&&val!==F.editOld){ S[key]=val; saveS(); inp.value=val; toast('Loading photos for '+(key==='wpSub'?'r/':'')+val); wpApply(); }
+  else inp.value=F.editOld||'';
 }
 function openSettings(){
   F.prevZone=F.zone==='top'?'top':(F.zone==='settings'?'shelf':F.zone); F.zone='settings'; F.page=-1; F.sIdx=0;
@@ -1589,7 +1634,8 @@ function applySettings(){
   if(gliding) cls.push('glide');
   if(F.zone==='top') cls.push('z-top');
   if(F.zone==='tabs') cls.push('z-tabs');
-  if(F.zone==='shelf'||F.zone==='menu') cls.push('z-shelf');
+  if(F.zone==='peek') cls.push('z-peek');
+  if(F.zone==='shelf'||(F.zone==='menu'&&F.menuFrom==='shelf')) cls.push('z-shelf');
   if(stage.classList.contains('boot')) cls.push('boot');
   if(WP.on&&isPhoto()) cls.push('photo');
   stage.className=cls.join(' ');
@@ -1620,23 +1666,23 @@ function switchTab(i){
 function onOk(){
   var z=F.zone, t=curTab();
   if(z==='shelf'){ if(!t) return; if(F.moving) endMove(); else launch(t.ids[col()],focusedCard); }
-  else if(z==='tabs'){ F.zone='shelf'; applyFocus(); }
+  else if(z==='tabs'||z==='peek'){ F.zone='shelf'; applyFocus(); }
   else if(z==='dock'){ var id=DOCK[F.dock]; if(id) launch(id,null); }
   else if(z==='top'){ if(F.top===0) openTvSettings(); else openSettings(); }
   else if(z==='menu') menuItems[F.mIdx].act();
   else if(z==='settings'){ if(F.sub) togglePick(); else changeOpt(1,true); }
 }
-function onHold(){ if(F.zone==='shelf'&&!F.moving) openMenu(); else onOk(); }
+function onHold(){ if((F.zone==='shelf'&&!F.moving)||F.zone==='dock') openMenu(); else onOk(); }
 function onBack(){
   if(!$('debug').hidden){ toggleDebug(); return; }
   var z=F.zone;
   if(z==='settings'){ if(F.sub) closeFavPicker(); else if(F.page>=0) closePage(); else closeSettings(); return; }
   if(z==='menu'){ closeMenu(); applyFocus(); return; }
   if(F.moving){ endMove(); return; }
-  if(z==='top'||z==='tabs'||z==='dock'){ F.zone=TABS.length?'shelf':'top'; applyFocus(); return; }
+  if(z==='top'||z==='tabs'||z==='dock'||z==='peek'){ F.zone=TABS.length?'shelf':'top'; applyFocus(); return; }
   /* on the shelf: first back to the first card, then to the first tab */
   if(z==='shelf'&&col()>0){ F.cols[F.tab]=0; applyFocus(); return; }
-  if(z==='shelf'&&tabIndex()>0){ switchTab(0); }
+  if(z==='shelf'){ for(var i=0;i<TABS.length;i++) if(TABS[i].key==='fav'&&i!==tabIndex()) return switchTab(i); }
 }
 function nav(k){
   var z=F.zone;
@@ -1651,7 +1697,7 @@ function nav(k){
   }
   if(z==='menu'){ if(k===K.UP) F.mIdx=Math.max(0,F.mIdx-1); if(k===K.DOWN) F.mIdx=Math.min(menuItems.length-1,F.mIdx+1); paintMenu(); return; }
   if(z==='top'){
-    if(k===K.DOWN) F.zone=TABS.length?'tabs':(DOCK.length?'dock':'top');
+    if(k===K.DOWN) F.zone=TABS.length?'peek':(DOCK.length?'dock':'top');
     else if(k===K.LEFT&&F.top>0) F.top--;
     else if(k===K.RIGHT&&F.top<1) F.top++;
     else return;
@@ -1661,8 +1707,13 @@ function nav(k){
     var ti=tabIndex();
     if(k===K.LEFT&&ti>0) switchTab(ti-1);
     else if(k===K.RIGHT&&ti<TABS.length-1) switchTab(ti+1);
-    else if(k===K.UP){ F.zone='top'; F.top=1; applyFocus(); }
+    else if(k===K.UP){ F.zone='peek'; applyFocus(); }
     else if(k===K.DOWN){ F.zone='shelf'; applyFocus(); }
+    return;
+  }
+  if(z==='peek'){
+    if(k===K.UP){ F.zone='top'; F.top=1; applyFocus(); }
+    else if(k===K.DOWN){ F.zone='tabs'; applyFocus(); }
     return;
   }
   if(z==='dock'){
@@ -1702,7 +1753,7 @@ document.addEventListener('keydown',function(e){
   if(k===K.BACK||k===K.ESC||k===K.BKSP){ e.preventDefault(); onBack(); return; }
   if(k===48||k===96||k===K.BLUE){ e.preventDefault(); toggleDebug(); return; }
   if(k===K.RED){ e.preventDefault(); if(F.zone==='settings') closeSettings(); else openSettings(); return; }
-  if(k===K.YELLOW||e.key==='ContextMenu'){ e.preventDefault(); if(F.zone==='shelf') openMenu(); return; }
+  if(k===K.YELLOW||e.key==='ContextMenu'){ e.preventDefault(); if(F.zone==='shelf'||F.zone==='dock') openMenu(); return; }
   if(k>=37&&k<=40){
     e.preventDefault();
     if(e.repeat){ var t=now(); if(t-lastRepeat<(S.quality==='lite'?70:110)) return; lastRepeat=t; }
