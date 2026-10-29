@@ -44,10 +44,22 @@ async def main():
         posts = [c for c in root_cmds(await ev('window.__calls')) if '-X POST' in c]
         print('posts', posts)
         assert len(posts) == 1 and "'http://192.168.1.20:8123/api/webhook/lumen-movie-x1'" in posts[0]
+        # no toast on success; the press shows as a ring that pulses out and is gone within about half a second
+        assert not await ev("document.getElementById('toast').classList.contains('on')"), 'no toast when a scene runs'
+        assert not await ev("!!document.querySelector('#dock .pill.ok')"), 'no green dot'
+        assert not await ev("document.querySelector('#dock .pill.focus').classList.contains('pressed')"), 'the ring should be gone by now'
+        await ev('window.__calls=[]')
+        await pg.keyboard.press('Enter'); await pg.wait_for_timeout(120)
+        ring = await ev("(function(){var p=document.querySelector('#dock .pill.focus');return [p.classList.contains('pressed'),getComputedStyle(p,'::after').opacity]})()")
+        print('press ring at 120 ms', ring); assert ring[0] and float(ring[1]) > .3, ring
+        await pg.screenshot(path=str(SHOTS/'scenes_press.png'))
+        await pg.wait_for_timeout(600)
+        assert not await ev("document.querySelector('#dock .pill.focus').classList.contains('pressed')")
+        # a failure still says so
+        await ev("window.__tv.CURL['/api/webhook/']=[0,'']")
+        await pg.keyboard.press('Enter'); await pg.wait_for_timeout(500)
         toast = await ev("document.getElementById('toast').textContent")
-        print('toast', toast); assert toast.startswith('Movie time')
-        assert await ev("document.querySelector('#dock .pill.focus').classList.contains('ok')")
-        await pg.screenshot(path=str(SHOTS/'scenes_run.png'))
+        print('failure toast', toast); assert toast == 'Couldn\u2019t reach Home Assistant'
 
         print('xhr to Home Assistant', xhr); assert not xhr, 'Home Assistant must only be reached through root curl on the TV'
         print('errors', errs); assert not errs

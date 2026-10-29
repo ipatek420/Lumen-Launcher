@@ -85,20 +85,22 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 .tab{position:relative;font-size:24px;font-weight:600;color:var(--faint);margin-right:48px;height:46px;line-height:34px;transition:color var(--dur);white-space:nowrap}
 .tab.on{color:var(--ink)}
 .tab .n{font-size:17px;font-weight:600;color:var(--faint);margin-left:9px;font-variant-numeric:tabular-nums}
-.tab.focus{color:var(--pill-ink)}
-.tab.focus .n{color:rgba(17,19,27,.55)}
 /* the pill behind a focused tab and the underline under the open tab: both moved with transform only */
-/* sized in px rather than scaled, so both ends stay perfect half circles; it only resizes when the tab changes */
-#tabpill{position:absolute;left:-22px;top:-8px;height:50px;width:100px;border-radius:25px;background:var(--pill);opacity:0;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),width var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur);will-change:transform,opacity;z-index:-1}
-#tabbar{position:absolute;left:0;top:42px;height:3px;width:100px;border-radius:2px;background:var(--accent);transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),width var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur),background-color .6s;will-change:transform}
-#stage.z-tabs #tabpill{opacity:1}
-#stage.z-tabs #tabbar{opacity:0}
+/* the accent underline marks the open category; with the tabs focused it is full strength and full height */
+#tabbar{position:absolute;left:0;top:42px;height:4px;width:100px;border-radius:2px;background:var(--accent);transform-origin:0 100%;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1),width var(--dur) cubic-bezier(.2,.8,.2,1),opacity var(--dur),background-color .6s;will-change:transform}
+#stage:not(.z-tabs) #tabbar{opacity:.85}
 #tabs .tab:first-child{margin-left:0}
 /* the track's window starts just left of the first card: cards that scroll past slide out of view under the clip
    (fading each one out instead cost a layer promotion and a re-raster of the whole track per step) */
 #trackWrap{position:absolute;left:96px;right:0;padding:80px 0 0 24px;overflow:hidden}
 #track{position:relative;display:flex;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);will-change:transform}
 #stage.glide #track{transition-duration:.15s;transition-timing-function:linear}
+/* entering the next category: the new cards slide in. Animated on #trackWrap, which has no transform of its own,
+   so the track's transform (its scroll position) is left alone; old TV browsers have no separate `translate` */
+#trackWrap.enterR{animation:enterR .34s cubic-bezier(.2,.8,.2,1)}
+#trackWrap.enterL{animation:enterL .34s cubic-bezier(.2,.8,.2,1)}
+@keyframes enterR{from{opacity:.25;transform:translate3d(60px,0,0)}to{opacity:1;transform:none}}
+@keyframes enterL{from{opacity:.25;transform:translate3d(-60px,0,0)}to{opacity:1;transform:none}}
 .card{flex:none;margin-right:36px;position:relative}
 .lift{position:relative;transition:transform var(--dur) cubic-bezier(.2,.8,.2,1);will-change:transform}
 .halo{position:absolute;left:0;top:0;right:0;bottom:0;border-radius:var(--radius);opacity:0;transition:opacity var(--dur);box-shadow:0 26px 44px rgba(0,0,0,.55);will-change:opacity}
@@ -150,7 +152,10 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 .pill svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-right:12px;flex:none}
 .pill .sw{width:12px;height:12px;border-radius:50%;margin-right:12px;flex:none}
 .pill.focus{background:var(--pill);color:var(--pill-ink);transform:scale(1.07)}
-.pill.ok::after{content:"";position:absolute;right:10px;top:10px;width:9px;height:9px;border-radius:50%;background:#7fe0a6}
+/* a scene press: an accent ring pulses out from the pill and fades within half a second */
+.pill::after{content:"";position:absolute;left:-2px;top:-2px;right:-2px;bottom:-2px;border-radius:32px;box-shadow:0 0 0 3px var(--accent);opacity:0;pointer-events:none}
+.pill.pressed::after{animation:press .55s ease-out both}
+@keyframes press{0%{opacity:1;transform:scale(1)}40%{opacity:.9;transform:scale(1.07,1.14)}100%{opacity:0;transform:scale(1.14,1.28)}}
 
 /* ---------- zones: Up to the top buttons lets the sky through ---------- */
 /* peek (Up from the tabs): the shelf slides down and fades so the sky or photo shows; the top buttons keep it aside */
@@ -280,7 +285,7 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 (function(){
 'use strict';
 if(typeof Object.assign!=='function'){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];if(s)for(var k in s)if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}return t;};}
-var SELF_ID='org.webosbrew.halcyon', VERSION='1.1';
+var SELF_ID='org.webosbrew.halcyon', VERSION='1.2';
 var K_SET='halcyon.settings.v1', K_APPS='halcyon.apps.v1', K_COLORS='halcyon.colors.v1', K_ICONS='halcyon.icons.v1', K_WX='halcyon.wx.v1', K_HA='halcyon.ha.v1';
 var stage=document.getElementById('stage');
 var $=function(id){ return document.getElementById(id); };
@@ -606,7 +611,7 @@ function render(){
   applyFocus(true);
 }
 function renderTabs(){
-  var h='<div id="tabpill"></div><div id="tabbar"></div>';
+  var h='<div id="tabbar"></div>';
   TABS.forEach(function(t){ h+='<div class="tab">'+esc(t.title)+'<span class="n">'+t.ids.length+'</span></div>'; });
   $('tabs').innerHTML=h;
   tabEls=Array.prototype.slice.call($('tabs').querySelectorAll('.tab'));
@@ -630,7 +635,7 @@ function renderTrack(){
   TX=null;
 }
 function dockItem(a){
-  if(a.ha) return '<div class="pill'+(haOk[a.id]?' ok':'')+'">'+svg(a.glyph)+esc(a.title)+'</div>';
+  if(a.ha) return '<div class="pill">'+svg(a.glyph)+esc(a.title)+'</div>';
   return '<div class="pill">'+svg('hdmi')+esc(a.title)+'</div>';
 }
 function renderDock(){
@@ -684,9 +689,8 @@ function applyFocus(force){
   var ti=tabIndex(), g=tabGeo[ti];
   tabEls.forEach(function(el,i){ el.classList.toggle('on',i===ti); el.classList.toggle('focus',z==='tabs'&&i===ti); });
   if(g){
-    var tb=$('tabbar'), tp=$('tabpill');
-    tb.style.width=g[1]+'px'; tb.style.transform='translate3d('+g[0]+'px,0,0)';
-    tp.style.width=(g[1]+44)+'px'; tp.style.transform='translate3d('+g[0]+'px,0,0)';
+    var tb=$('tabbar');
+    tb.style.width=g[1]+'px'; tb.style.transform='translate3d('+g[0]+'px,0,0) scaleY('+(z==='tabs'?1:.75)+')';
   }
   /* dock */
   pillEls.forEach(function(el,i){ el.classList.toggle('focus',z==='dock'&&i===F.dock); });
@@ -697,13 +701,10 @@ function applyFocus(force){
 var heroKey=null, heroT=null, heroFlip=false, lastNav=0, bdTimer=null, focusApp=null;
 var TOP_HERO=[['LG webOS','TV settings','Picture, sound, network and everything else in LG’s own settings menu.'],
               ['Halcyon '+VERSION,'Halcyon settings','The sky, cards, greeting, weather, favorites and Home Assistant scenes.']];
-var TAB_DESC={fav:'The apps you keep close. Hold OK on any app to add or remove it.',
-  recent:'What you’ve opened lately, newest first.',
-  all:'Every app on this TV. Hold OK to move or hide one.'};
 function heroFor(){
   var z=F.zone, t=curTab();
   if(z==='top'){ var h=TOP_HERO[F.top]; return {key:'top'+F.top,eyebrow:h[0],title:h[1],desc:h[2],app:null}; }
-  if(z==='tabs'&&t) return {key:'tab'+t.key,eyebrow:'Shelf',title:t.title,desc:TAB_DESC[t.key]+'',app:null};
+  if(z==='tabs'&&t) return {key:'tab'+t.key,eyebrow:t.ids.length+' app'+(t.ids.length===1?'':'s'),title:t.title,desc:'',app:null};
   var a=null;
   if(z==='dock') a=APPS[DOCK[F.dock]];
   else if(t) a=APPS[t.ids[col()]];
@@ -1124,7 +1125,7 @@ function wxSetPlace(q,inp){
    Same setup as Lumen: tiles from http://<address>/local/halcyon.json (or lumen.json), each one a webhook.
    On the TV both requests go through root curl, never XHR: a CORS-blocked POST still reaches Home Assistant,
    so falling back after XHR would run the automation twice. */
-var HA=readJSON(K_HA)||{}, haBusy=false, haLast=0, haState='', haOk={};
+var HA=readJSON(K_HA)||{}, haBusy=false, haLast=0, haState='';
 function haAddr(v){
   v=String(v||'').trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
   if(!/^[A-Za-z0-9.\-]+(:\d{1,5})?$/.test(v)) return '';
@@ -1195,14 +1196,19 @@ function haLoad(manual){
     haFetch(base+'/local/lumen.json?t='+Date.now(),function(c2,b2,e2){ got(c2,b2,e2,'lumen.json'); });
   });
 }
+function pressPulse(id){
+  var el=pillEls[DOCK.indexOf(id)]; if(!el) return;
+  el.classList.remove('pressed'); void el.offsetWidth; el.classList.add('pressed');
+  clearTimeout(el.pressT); el.pressT=setTimeout(function(){ el.classList.remove('pressed'); },600);
+}
 function haRun(a){
   var done=function(code,err){
     dlog('home assistant: '+a.title+' -> HTTP '+(code||'no answer')+(err?' ('+err+')':''));
     var ok=code>=200&&code<300;
-    toast(ok?a.title+'  ✓':code===0?'Couldn’t reach Home Assistant':'Home Assistant said no ('+code+')');
-    if(ok){ haOk[a.id]=1; var i=DOCK.indexOf(a.id); if(pillEls[i]) pillEls[i].classList.add('ok'); setTimeout(function(){ delete haOk[a.id]; var j=DOCK.indexOf(a.id); if(pillEls[j]) pillEls[j].classList.remove('ok'); },4000); }
+    if(!ok) toast(code===0?'Couldn’t reach Home Assistant':'Home Assistant said no ('+code+')');   /* success needs no message */
   };
-  if(HA.demo||!ON_TV){ dlog('home assistant: '+a.title+' (preview)'); toast(a.title+'  —  preview only, no TV connected'); return; }
+  pressPulse(a.id);
+  if(HA.demo||!ON_TV){ dlog('home assistant: '+a.title+' (preview)'); return; }
   var base=haBase(); if(!base){ toast('Set Home Assistant’s address in settings'); return; }
   rootExec('curl -s -o /dev/null --max-time 8 -w '+shq('%{http_code}')+' -X POST '+shq(base+'/api/webhook/'+a.ha.webhook)+' 2>/dev/null || echo 000',function(res,err){
     done(+String((res&&res.stdoutString)||'').trim()||0,err);
@@ -1670,6 +1676,17 @@ function fpsLoop(){ if(!fpsOn) return; fpsFrames++; var t=now(); if(t-fpsT>=1000
 var K={LEFT:37,UP:38,RIGHT:39,DOWN:40,OK:13,BACK:461,ESC:27,BKSP:8,RED:403,GREEN:404,YELLOW:405,BLUE:406};
 var okTimer=null, holdFired=false, okDown=false, gliding=false, glideT=null, lastRepeat=0;
 function endGlide(){ gliding=false; stage.classList.remove('glide'); }
+/* the shelf runs on from one category into the next: the track snaps to the new category without rewinding
+   across the old one, then slides in from the side it was entered (transform and opacity only) */
+function crossTab(i,c,dir){
+  var t=TABS[i]; if(!t) return;
+  F.tab=t.key; F.cols[t.key]=c;
+  renderTrack(); layout();
+  var tr=$('track'), w=$('trackWrap');
+  tr.style.transition='none'; applyFocus(true); void tr.offsetWidth; tr.style.transition='';
+  if(S.speed!=='off'){ w.className=''; void w.offsetWidth; w.className=dir>0?'enterR':'enterL'; }
+  lastNav=now();
+}
 function switchTab(i){
   var t=TABS[i]; if(!t||t.key===F.tab) return;
   F.tab=t.key; renderTrack(); layout(); applyFocus(true);
@@ -1693,7 +1710,7 @@ function onBack(){
   if(z==='top'||z==='tabs'||z==='dock'||z==='peek'){ F.zone=TABS.length?'shelf':'top'; applyFocus(); return; }
   /* on the shelf: first back to the first card, then to the first tab */
   if(z==='shelf'&&col()>0){ F.cols[F.tab]=0; applyFocus(); return; }
-  if(z==='shelf'){ for(var i=0;i<TABS.length;i++) if(TABS[i].key==='fav'&&i!==tabIndex()) return switchTab(i); }
+  if(z==='shelf'){ for(var i=0;i<TABS.length;i++) if(TABS[i].key==='fav'&&i!==tabIndex()){ F.cols.fav=0; return switchTab(i); } }
 }
 function nav(k){
   var z=F.zone;
@@ -1738,9 +1755,11 @@ function nav(k){
   var t=curTab();
   if(!t){ if(k===K.UP){ F.zone='top'; applyFocus(); } else if(k===K.DOWN&&DOCK.length){ F.zone='dock'; applyFocus(); } return; }
   if(F.moving){ if(k===K.LEFT) moveBy(-1); else if(k===K.RIGHT) moveBy(1); return; }
-  var c=col();
+  var c=col(), ti=tabIndex();
   if(k===K.LEFT&&c>0) F.cols[t.key]=c-1;
   else if(k===K.RIGHT&&c<t.ids.length-1) F.cols[t.key]=c+1;
+  else if(k===K.RIGHT&&ti<TABS.length-1) return crossTab(ti+1,0,1);
+  else if(k===K.LEFT&&ti>0) return crossTab(ti-1,TABS[ti-1].ids.length-1,-1);
   else if(k===K.UP) F.zone='tabs';
   else if(k===K.DOWN&&DOCK.length) F.zone='dock';
   else return;

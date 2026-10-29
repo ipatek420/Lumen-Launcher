@@ -66,10 +66,12 @@ async def main():
         assert await ev("window.__halcyon.F.zone") == 'tabs'
         await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(500)
         assert await ev("window.__halcyon.F.tab") == 'all'
-        assert await ev("document.getElementById('title').textContent") == 'All apps'
-        # the pill behind the focused tab is a true pill: sized in px, never scaled, radius half its height
-        pill = await ev("(function(){var p=document.getElementById('tabpill'),c=getComputedStyle(p);return [p.offsetHeight,parseFloat(c.borderTopLeftRadius),c.transform]})()")
-        print('tab pill', pill); assert pill[1] * 2 == pill[0] and 'matrix(1, 0, 0, 1' in pill[2], pill
+        # the category hero: the count in the accent line, the name, no description; no pill, the accent underline marks it
+        hero = await ev("['eyebrow','title','desc'].map(function(i){return document.getElementById(i).textContent})")
+        print('category hero', hero); assert hero == ['6 apps', 'All apps', ''], hero
+        await pg.wait_for_timeout(400)
+        bar = await ev("(function(){var b=document.getElementById('tabbar'),t=document.querySelectorAll('.tab')[1];return [!!document.getElementById('tabpill'),getComputedStyle(b).opacity,Math.round(b.getBoundingClientRect().left),Math.round(t.getBoundingClientRect().left),b.offsetWidth,t.offsetWidth]})()")
+        print('underline', bar); assert not bar[0] and bar[1] == '1' and abs(bar[2]-bar[3]) <= 1 and bar[4] == bar[5], bar
         await pg.screenshot(path=str(SHOTS/'tv_tabs.png'))
 
         # Up again: the peek. The shelf slides down and fades to show the sky, nothing is focused
@@ -116,6 +118,26 @@ async def main():
         # Back on the shelf returns to Favorites, wherever it sits
         await pg.keyboard.press('Escape'); await pg.wait_for_timeout(400)
         assert await ev("window.__halcyon.F.tab") == 'fav'
+
+        # one continuous shelf: Left off the first favorite runs into Recent (its last card), Right runs back;
+        # Right off the last favorite runs into All apps (its first card), Left runs back to the last favorite
+        where = lambda: ev("[window.__halcyon.F.tab, window.__halcyon.F.cols[window.__halcyon.F.tab]]")
+        await pg.keyboard.press('ArrowLeft'); await pg.wait_for_timeout(450)
+        assert await where() == ['recent', 0], await where()
+        assert await ev("window.__halcyon.F.zone") == 'shelf'
+        await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(450)
+        assert await where() == ['fav', 0], await where()
+        for _ in range(5): await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(150)
+        assert await where() == ['fav', 5], await where()
+        await pg.keyboard.press('ArrowRight'); await pg.wait_for_timeout(120)
+        assert await where() == ['all', 0], await where()
+        await pg.screenshot(path=str(SHOTS/'tv_cross.png'))
+        await pg.wait_for_timeout(400)
+        assert (await ev("document.querySelector('.tab.on').textContent")).startswith('All apps')
+        await pg.keyboard.press('ArrowLeft'); await pg.wait_for_timeout(450)
+        assert await where() == ['fav', 5], await where()
+        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(400)
+        assert await where() == ['fav', 0]
 
         # the dock: Down from the shelf, OK switches input through root
         await pg.keyboard.press('ArrowDown'); await pg.wait_for_timeout(500)

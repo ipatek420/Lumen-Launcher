@@ -1,6 +1,6 @@
 # Halcyon: notes for contributors (and coding agents)
 
-A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.halcyon`. Version **1.1.0**. Same platform, same hard-won rules; different layout, type and personality. Read `../CLAUDE.md` first: its "webOS rules learned the hard way" all apply here.
+A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.halcyon`. Version **1.2.0**. Same platform, same hard-won rules; different layout, type and personality. Read `../CLAUDE.md` first: its "webOS rules learned the hard way" all apply here.
 
 ## Design
 
@@ -10,7 +10,9 @@ A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.
 - **Layout, bottom up** (`layout()`): dock (bottom 60 px), card track with labels, tabs 80 px above the track, hero anchored by its *bottom* 44 px above the tabs, so it never collides with tall cards. Greeting top left, clock and two buttons top right, hints right-aligned on the tab line.
 - **One shelf under tabs** instead of Lumen's stacked rows: Recent (when non-empty), Favorites, All apps (user's order, 1.1). Halcyon opens on Favorites; Back on the shelf returns there. Only one track is in the DOM at a time.
 - **Dock:** inputs ("Sources") and Home Assistant tiles (titled by the tile file's `title`) as pills. Hold OK on a pill: switch/run, or hide it (`S.hidden`, unhidden from Apps → Hidden apps & sources).
-- **Tab pill:** sized in px (`width`) and moved with `transform`, never scaled: `scaleX` on a rounded box squashed its ends (user: "not quite a pill"). It only resizes on a tab change.
+- **Categories (1.2):** no pill behind the focused tab (tried in 1.0–1.1, user preferred the line): the accent underline `#tabbar` marks the open category, full strength while the tabs have focus. Sized in px and moved with `transform`. With the tabs focused the hero shows the count in the accent line ("6 APPS") and the name; no "Shelf" label or description (user: it over-described).
+- **One continuous shelf (1.2):** Right past the last card runs into the next category's first card, Left before the first into the previous category's last (`crossTab()`). The track snaps (transition off for one frame) rather than rewinding across the old category, and `#trackWrap` slides in 60 px from the side it was entered (`enterR`/`enterL`, transform + opacity; not the separate `translate` property, which old webOS browsers lack).
+- **Scene press (1.2):** no toast on success and no lingering dot (user's request); an accent ring on `.pill::after` pulses out and fades in .55 s (`pressPulse()`, on press, before Home Assistant answers). Failures still toast.
 - **Recent:** `noteUse()` on launch keeps `S.recent` (14, newest first). The shelf re-renders on return (`onReturn`), not at launch, so nothing re-lays out under the zoom. A "Last opened …" hero line was tried in 1.0 and removed in 1.1 (user: unnecessary); apps without a description show none.
 
 ## The sky (`skyNow()`, `paintSky()`)
@@ -29,7 +31,7 @@ Findings from getting there:
 
 ## Zones and keys
 
-`F.zone`: `shelf` · `tabs` · `peek` · `top` · `dock` · `menu` · `settings`. Up: shelf → tabs → peek → top. Down: top → peek → tabs → shelf → dock. **Peek** (Lumen's two-step Up, restored in 1.1 at the user's request): `#stage.z-peek` slides the shelf down 170 px and fades it to .16, hides hero/hints/dock and lightens the photo shade, so the sky or photo shows; OK or Back returns to the cards. `z-top` keeps the shelf aside and the hero describes the focused button. Left/Right on tabs switches the shelf immediately. Back: dock/tabs/top → shelf; on the shelf, first card, then first tab. An empty shelf (apps still loading) parks focus on the dock or top (`F.parked`) and returns it when apps arrive (first-boot bug caught by `test_tv.py`). Hold OK/Yellow: options menu; Red: settings; Green: next photo; 0/Blue: debug log.
+`F.zone`: `shelf` · `tabs` · `peek` · `top` · `dock` · `menu` · `settings`. Up: shelf → tabs → peek → top. Down: top → peek → tabs → shelf → dock. **Peek** (Lumen's two-step Up, restored in 1.1 at the user's request): `#stage.z-peek` slides the shelf down 170 px and fades it to .16, hides hero/hints/dock and lightens the photo shade, so the sky or photo shows; OK or Back returns to the cards. `z-top` keeps the shelf aside and the hero describes the focused button. Left/Right on tabs switches the shelf immediately. Back: dock/tabs/top → shelf; on the shelf, first card, then the first card of Favorites. An empty shelf (apps still loading) parks focus on the dock or top (`F.parked`) and returns it when apps arrive (first-boot bug caught by `test_tv.py`). Hold OK/Yellow: options menu; Red: settings; Green: next photo; 0/Blue: debug log.
 
 ## Storage
 

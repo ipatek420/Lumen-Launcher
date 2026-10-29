@@ -25,7 +25,7 @@ It's a redesign of [Lumen Launcher](../README.md), built on everything Lumen lea
 
 | Button | On the shelf | Elsewhere |
 |---|---|---|
-| ← → | Move along the shelf | Switch tabs, move along the dock |
+| ← → | Move along the shelf; past the last app it runs on into the next category, before the first into the previous one | Switch tabs, move along the dock |
 | ↑ | Up to the tabs; Up again and the shelf slides down so you can see the sky or photo; Up again for the Halcyon settings button (Left for TV settings). Down goes back the same way; OK or Back from the sky view returns to the cards. | |
 | ↓ | Down to the dock (sources and scenes) | |
 | OK | Open the app | Switch input, run a scene, open a tab |
@@ -43,7 +43,7 @@ Pages, like Lumen's: **Backdrop** (living sky, app colours, still ink; photos: L
 
 ## Home Assistant
 
-Same setup as Lumen ([guide](../docs/home-assistant.md)): webhook automations plus a tile list in Home Assistant's `www` folder. Halcyon reads `www/halcyon.json`, and falls back to your existing `www/lumen.json`, so a Lumen setup works unchanged. Scenes appear as pills in the dock under the file's `title`; a green dot confirms Home Assistant received the press.
+Same setup as Lumen ([guide](../docs/home-assistant.md)): webhook automations plus a tile list in Home Assistant's `www` folder. Halcyon reads `www/halcyon.json`, and falls back to your existing `www/lumen.json`, so a Lumen setup works unchanged. Scenes appear as pills in the dock under the file's `title`; pressing one sends a ring of the accent colour out from the pill. A message appears only if Home Assistant can't be reached or refuses.
 
 ## A source that should be gone
 
@@ -56,13 +56,13 @@ Requires a rooted LG TV with the webOS Homebrew Channel.
 ```sh
 cd halcyon
 npm install                      # webOS CLI and the two font families
-python3 build.py --package       # -> dist/org.webosbrew.halcyon_1.1.0_all.ipk
+python3 build.py --package       # -> dist/org.webosbrew.halcyon_1.2.0_all.ipk
 ```
 
 Then install the `.ipk` like Lumen: with `ares-install`, or over SSH:
 
 ```sh
-luna-send -n 1 'luna://com.webos.appInstallService/dev/install' '{"id":"org.webosbrew.halcyon","ipkUrl":"/tmp/org.webosbrew.halcyon_1.1.0_all.ipk","subscribe":true}'
+luna-send -n 1 'luna://com.webos.appInstallService/dev/install' '{"id":"org.webosbrew.halcyon","ipkUrl":"/tmp/org.webosbrew.halcyon_1.2.0_all.ipk","subscribe":true}'
 ```
 
 Halcyon and Lumen have different app ids and can be installed side by side.
