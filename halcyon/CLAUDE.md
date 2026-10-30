@@ -43,7 +43,7 @@ Rule 2 of `../CLAUDE.md`: connected HDMI only, and a port whose connection the T
 
 ## Restart TV (1.3)
 
-LG's settings have no reboot. Settings → Advanced → Restart TV: OK arms it ("Press OK again to restart"), a second OK within 3.5 s calls `rebootTv()`: `luna://org.webosbrew.hbchannel.service/reboot` (what the Homebrew Channel's own Reboot button uses), then root `reboot` if that is refused. Moving away or 3.5 s cancels (`disarm()`, shared with Reset all settings, redraws the armed row). Unverified on a real TV.
+LG's settings have no reboot. Settings → Advanced → Restart TV: OK arms it ("Press OK again to restart"), a second OK within 3.5 s calls `rebootTv()`: `luna://org.webosbrew.hbchannel.service/reboot` (what the Homebrew Channel's own Reboot button uses), then root `reboot` if that is refused. Moving away or 3.5 s cancels (`disarm()`, shared with Reset all settings, redraws the armed row). Confirmed working on the real TV (1.3).
 
 ## Home Assistant
 
