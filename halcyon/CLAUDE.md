@@ -1,6 +1,6 @@
 # Halcyon: notes for contributors (and coding agents)
 
-A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.halcyon`. Version **1.2.0**. Same platform, same hard-won rules; different layout, type and personality. Read `../CLAUDE.md` first: its "webOS rules learned the hard way" all apply here.
+A redesign of Lumen Launcher for **rooted LG webOS TVs**, app id `org.webosbrew.halcyon`. Version **1.3.0**. Same platform, same hard-won rules; different layout, type and personality. Read `../CLAUDE.md` first: its "webOS rules learned the hard way" all apply here.
 
 ## Design
 
@@ -41,6 +41,10 @@ Findings from getting there:
 
 Rule 2 of `../CLAUDE.md`: connected HDMI only, and a port whose connection the TV doesn't report is shown. Every load logs what the TV said per port (`inputs: N shown; TV reports HDMI_1 connected=true … | …`). If the input list can't be read, the last list is kept and a manual reload says so (1.0 claimed "sources loaded" with the old list). A user reported (1.0, real TV) a removed HDMI source that stayed after reload and reboot: not reproduced on the simulated TV, where an unplugged port leaves the dock on the next load; the log line will tell whether the TV still reports it connected. Workaround: hide the pill.
 
+## Restart TV (1.3)
+
+LG's settings have no reboot. Settings → Advanced → Restart TV: OK arms it ("Press OK again to restart"), a second OK within 3.5 s calls `rebootTv()`: `luna://org.webosbrew.hbchannel.service/reboot` (what the Homebrew Channel's own Reboot button uses), then root `reboot` if that is refused. Moving away or 3.5 s cancels (`disarm()`, shared with Reset all settings, redraws the armed row). Unverified on a real TV.
+
 ## Home Assistant
 
 Lumen's protocol unchanged (`../docs/home-assistant.md`): `GET /local/halcyon.json`, on 404 `GET /local/lumen.json`; `POST /api/webhook/<id>`; both through root curl on the TV, never XHR; ids `^[A-Za-z0-9_-]{1,100}$`, max 20 tiles. The browser preview shows a demo "Living room" set.
@@ -49,7 +53,7 @@ Lumen's protocol unchanged (`../docs/home-assistant.md`): `GET /local/halcyon.js
 
 ```sh
 npm install && python3 build.py [--package]
-HALCYON_CHROMIUM=/path/to/chrome python3 tests/test_tv.py   # and test_scenes, test_sky_settings, test_wallpapers, test_performance
+HALCYON_CHROMIUM=/path/to/chrome python3 tests/test_tv.py   # and test_scenes, test_sky_settings, test_wallpapers, test_reboot, test_performance
 ```
 
 `tests/tvmock.py` is the simulated TV (direct calls denied; root exec answers luna-send, cat, curl). Look at `tests/shots/` after every change.

@@ -285,7 +285,7 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 (function(){
 'use strict';
 if(typeof Object.assign!=='function'){Object.assign=function(t){for(var i=1;i<arguments.length;i++){var s=arguments[i];if(s)for(var k in s)if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}return t;};}
-var SELF_ID='org.webosbrew.halcyon', VERSION='1.2';
+var SELF_ID='org.webosbrew.halcyon', VERSION='1.3';
 var K_SET='halcyon.settings.v1', K_APPS='halcyon.apps.v1', K_COLORS='halcyon.colors.v1', K_ICONS='halcyon.icons.v1', K_WX='halcyon.wx.v1', K_HA='halcyon.ha.v1';
 var stage=document.getElementById('stage');
 var $=function(id){ return document.getElementById(id); };
@@ -426,7 +426,8 @@ var OPTIONS=[
  {key:'quality',label:'Effects',values:[['full','Full'],['lite','Lite']]},
  {key:'speed',label:'Animation',values:[['fast','Brisk'],['normal','Calm'],['relaxed','Slow'],['off','Off']]},
  {key:'fps',label:'Show frame rate',bool:1},
- {h:'Advanced',sum:function(){ return 'Halcyon '+VERSION; }},
+ {h:'Advanced',sum:function(){ return 'Restart TV  \u00b7  Halcyon '+VERSION; }},
+ {key:'_reboot',label:'Restart TV',action:1},
  {key:'_debug',label:'Debug log',action:1},
  {key:'_reset',label:'Reset all settings',action:1}
 ];
@@ -1436,6 +1437,18 @@ function launch(id,fromEl){
     });
   },300);
 }
+/* Restart TV: LG's settings have no reboot, so this asks the Homebrew Channel, as its own Reboot button does,
+   and falls back to running reboot as root. On success the TV goes down and no reply may ever arrive. */
+function rebootTv(){
+  if(!ON_TV){ toast('Restarting the TV  \u2014  preview only, no TV connected'); return; }
+  dlog('reboot: asking the Homebrew Channel');
+  toast('Restarting the TV\u2026');
+  luna('luna://org.webosbrew.hbchannel.service/reboot',{},function(r){
+    if(r&&r.returnValue!==false) return;
+    dlog('reboot: Homebrew Channel refused ('+((r&&r.errorText)||'no reply')+'), trying root');
+    rootExec('reboot',function(res,err){ if(err){ dlog('reboot: root failed ('+err+')'); toast('Couldn\u2019t restart the TV. Press 0 for details.'); } });
+  });
+}
 function openTvSettings(){
   if(!ON_TV){ toast('Opening TV settings  —  preview only, no TV connected'); return; }
   lunaDo('luna://com.webos.applicationManager/launch',{id:'com.palm.app.settings'},function(ok,err){
@@ -1487,7 +1500,13 @@ function moveBy(dir){
 function endMove(){ F.moving=null; applyFocus(); toast('Order saved'); }
 
 /* ---------- settings sheet ---------- */
-var sFocusable=[], sItems=[], resetArmed=false, resetT=null;
+var sFocusable=[], sItems=[], resetArmed=false, resetT=null, rebootArmed=false, rebootT=null;
+/* Reset and Restart TV wait for a second OK; moving away or 3.5 s cancels, and the armed row is redrawn */
+function disarm(){
+  if(!resetArmed&&!rebootArmed) return;
+  resetArmed=rebootArmed=false; clearTimeout(resetT); clearTimeout(rebootT);
+  if(F.zone==='settings'&&!F.sub) renderSettings();
+}
 function optValue(o){
   var v=S[o.key];
   if(o.key==='_hidden'){ var n=(S.hidden||[]).length; return n?n+' hidden  ·  OK shows all':'None'; }
@@ -1496,6 +1515,7 @@ function optValue(o){
   if(o.key==='_recent') return (S.recent||[]).length?(S.recent.length+' apps'):'Empty';
   if(o.key==='_debug') return 'Also: 0 or blue button';
   if(o.key==='_reset') return resetArmed?'Press OK again to confirm':'';
+  if(o.key==='_reboot') return rebootArmed?'Press OK again to restart':(ON_TV?'':'TV only');
   if(o.key==='_nextwp') return 'OK, or the green button';
   if(o.key==='_haReload') return esc(haStatusText());
   if(o.text) return '<input class="tx" id="in-'+o.key+'" type="text" value="'+esc(v||'')+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' spellcheck="false" autocomplete="off" tabindex="-1">';
@@ -1562,8 +1582,13 @@ function changeOpt(dir,isOk){
     if(o.key==='_refresh'&&ON_TV){ toast('Reloading apps…'); loadTvApps(true); }
     if(o.key==='_hidden'&&(S.hidden||[]).length){ S.hidden=[]; saveS(); render(); toast('Everything is visible again'); }
     if(o.key==='_recent'){ S.recent=[]; saveS(); render(); toast('Recent cleared'); }
+    if(o.key==='_reboot'){
+      /* a second OK within 3.5 s confirms, like Reset */
+      if(!rebootArmed){ rebootArmed=true; clearTimeout(rebootT); rebootT=setTimeout(disarm,3500); }
+      else { rebootArmed=false; clearTimeout(rebootT); rebootTv(); }
+    }
     if(o.key==='_reset'){
-      if(!resetArmed){ resetArmed=true; clearTimeout(resetT); resetT=setTimeout(function(){ resetArmed=false; refreshOpt(); },3500); }
+      if(!resetArmed){ resetArmed=true; clearTimeout(resetT); resetT=setTimeout(disarm,3500); }
       else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden,hiddenInit:S.hiddenInit,recent:S.recent}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); toast('Settings reset'); return; }
     }
     refreshOpt(); return;
@@ -1720,7 +1745,7 @@ function nav(k){
     else if(k===K.DOWN) F.sIdx=Math.min(sFocusable.length-1,F.sIdx+1);
     else if(k===K.LEFT) return changeOpt(-1);
     else if(k===K.RIGHT) return changeOpt(1);
-    if(resetArmed){ resetArmed=false; refreshOpt(); }
+    disarm();
     paintSettings(); return;
   }
   if(z==='menu'){ if(k===K.UP) F.mIdx=Math.max(0,F.mIdx-1); if(k===K.DOWN) F.mIdx=Math.min(menuItems.length-1,F.mIdx+1); paintMenu(); return; }

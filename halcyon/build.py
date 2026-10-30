@@ -5,7 +5,7 @@
   python3 build.py --package  -> also dist/org.webosbrew.halcyon_<ver>_all.ipk via ares-package
 """
 import json, re, shutil, subprocess, sys, pathlib
-VERSION = '1.2.0'
+VERSION = '1.3.0'
 ROOT = pathlib.Path(__file__).resolve().parent
 FONTS = [('fraunces', 300, 'normal'), ('fraunces', 300, 'italic'), ('fraunces', 400, 'normal'),
          ('manrope', 400, 'normal'), ('manrope', 500, 'normal'), ('manrope', 600, 'normal'), ('manrope', 700, 'normal')]

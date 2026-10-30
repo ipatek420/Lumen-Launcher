@@ -37,7 +37,7 @@ It's a redesign of [Lumen Launcher](../README.md), built on everything Lumen lea
 
 ## Settings
 
-Pages, like Lumen's: **Backdrop** (living sky, app colours, still ink; photos: Landscapes, Astrophotography, Botanical, Nature, Sea & coast, Sky & clouds, Abstract & fractals, Bing photo of the day, NASA picture of the day, a custom topic or a subreddit; tint; dim), **Cards** (wide, square or icon; size; larger favorites; corner radius; names), **Focus & colour** (glow, ring or lift; zoom; accent: Auto follows the focused app), **Greeting & clock** (your name, 12/24-hour), **Weather** (place, °F/°C), **Shelf & dock**, **Apps** (choose favorites, reload apps and sources, unhide apps and sources, clear Recent), **Home Assistant**, **Performance** (Lite mode, animation speed, frame rate) and **Advanced**.
+Pages, like Lumen's: **Backdrop** (living sky, app colours, still ink; photos: Landscapes, Astrophotography, Botanical, Nature, Sea & coast, Sky & clouds, Abstract & fractals, Bing photo of the day, NASA picture of the day, a custom topic or a subreddit; tint; dim), **Cards** (wide, square or icon; size; larger favorites; corner radius; names), **Focus & colour** (glow, ring or lift; zoom; accent: Auto follows the focused app), **Greeting & clock** (your name, 12/24-hour), **Weather** (place, °F/°C), **Shelf & dock**, **Apps** (choose favorites, reload apps and sources, unhide apps and sources, clear Recent), **Home Assistant**, **Performance** (Lite mode, animation speed, frame rate) and **Advanced** (**Restart TV**, which LG's own settings don't offer: press OK twice; debug log; reset).
 
 ![Settings](docs/screenshots/settings.jpg)
 
@@ -56,13 +56,13 @@ Requires a rooted LG TV with the webOS Homebrew Channel.
 ```sh
 cd halcyon
 npm install                      # webOS CLI and the two font families
-python3 build.py --package       # -> dist/org.webosbrew.halcyon_1.2.0_all.ipk
+python3 build.py --package       # -> dist/org.webosbrew.halcyon_1.3.0_all.ipk
 ```
 
 Then install the `.ipk` like Lumen: with `ares-install`, or over SSH:
 
 ```sh
-luna-send -n 1 'luna://com.webos.appInstallService/dev/install' '{"id":"org.webosbrew.halcyon","ipkUrl":"/tmp/org.webosbrew.halcyon_1.2.0_all.ipk","subscribe":true}'
+luna-send -n 1 'luna://com.webos.appInstallService/dev/install' '{"id":"org.webosbrew.halcyon","ipkUrl":"/tmp/org.webosbrew.halcyon_1.3.0_all.ipk","subscribe":true}'
 ```
 
 Halcyon and Lumen have different app ids and can be installed side by side.
@@ -78,6 +78,7 @@ python3 tests/test_tv.py             # apps and sources via root, icon edge colo
 python3 tests/test_scenes.py         # Home Assistant: halcyon.json -> lumen.json fallback, unsafe ids dropped, one root-curl POST per press
 python3 tests/test_sky_settings.py   # sky phases and greetings through the day, weather lookup and sentence, settings pages
 python3 tests/test_wallpapers.py     # every photo topic, custom topic, subreddit through root curl
+python3 tests/test_reboot.py         # Restart TV: two OKs, cancels on moving away, Homebrew Channel reboot then root
 python3 tests/test_performance.py    # frame rate at 6x CPU throttle for each backdrop and Lite
 ```
 
