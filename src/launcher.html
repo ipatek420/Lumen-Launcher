@@ -92,7 +92,10 @@ html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
 .art.seam img{width:88%;height:88%;max-width:none;max-height:none;object-fit:contain}
 .art.tile img{max-width:62%;max-height:74%;border-radius:22px}
 #stage.style-icon .art.tile img{max-width:82%;max-height:82%}
-.art.splash img,.art.splash svg{display:none}
+.art.splash img,.art.splash svg,.art.splash .mono{display:none}
+/* YouTube's own art is a square wordmark or a banner with no logo. The bundled card is the wordmark on white, full width. */
+#stage .art[data-id="youtube.leanback.v4"]{background-color:#fff}
+#stage .art[data-id="youtube.leanback.v4"] img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;object-position:center}
 /* named cards (inputs): glyph top-left, name bottom-left, readable without focus */
 .art.nm{flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:0 26px 22px;box-sizing:border-box}
 .art.nm svg{position:absolute;left:24px;top:22px;height:30%;stroke-width:1.6;opacity:.95}
@@ -1268,13 +1271,16 @@ function plainPath(u){ return String(u||'').replace(/^file:\/\//,''); }
 var EXCLUDE={'org.webosbrew.lumen':1,'com.lumen.launcher':1,'org.lumen.launcher':1};
 var DEFAULT_HIDDEN=['works.partridge.webos-launcher','com.spocky.projengmenu'];
 var INPUT_RE=/^com\.webos\.app\.(hdmi\d|externalinput\..*|livetv\.hdmi.*)$/;
+/* shipped next to index.html; a relative url, not a TV file path */
+var CARD_ART={'youtube.leanback.v4':'youtube-card.png'};
 
 function mapLaunchPoint(p){
   var id=p.id||p.appId;
+  var card=CARD_ART[id]||'';
   return {id:id,title:p.title||id,
-    icon:fileUrl(p.largeIcon||p.mediumLargeIcon||p.icon,p.folderPath),
+    icon:card||fileUrl(p.largeIcon||p.mediumLargeIcon||p.icon,p.folderPath),
     icon2:fileUrl(p.icon,p.folderPath),
-    splash:fileUrl(p.bgImage||p.splashBackground,p.folderPath),
+    splash:card||fileUrl(p.bgImage||p.splashBackground,p.folderPath),
     color:(p.iconColor&&/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(p.iconColor))?p.iconColor:((p.bgColor&&/^#[0-9a-f]{6}$/i.test(p.bgColor))?p.bgColor:hashColor(id)),
     params:p.params||null, system:!!(p.systemApp||p.removable===false), version:p.version};
 }
