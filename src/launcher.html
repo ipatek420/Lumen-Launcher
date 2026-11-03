@@ -346,7 +346,7 @@ var ACCENTS=[['auto','Auto'],['#8fd3ff','Ice'],['#63a8ff','Blue'],['#4fd6c4','Te
  ['#ff8f70','Coral'],['#ff6b6b','Red'],['#ff9eb5','Rose'],['#ff7ad6','Magenta'],['#d08cff','Orchid'],['#b9a3ff','Violet'],['#f3f5f9','White']];
 var DEFAULTS={wallpaper:'focus',blur:40,dim:40,cardStyle:'landscape',cardSize:'m',bigFav:true,radius:18,splash:true,labels:'focus',
   focus:'lift',scale:110,accent:'#8fd3ff',parallax:true,scroll:'pinned',hero:true,rowTitles:true,clock:'12',date:true,hints:true,speed:'normal',
-  quality:'full',fps:false,wpTopic:'waterfall',wpSub:'EarthPorn',wpEvery:'15',wpCredit:true,wpZoom:false,wpBlur:false,wpRes:'1440',wpLast:null,favorites:null,favSource:'',order:{},hidden:[],weather:true,wxPlace:'',wxUnits:'f',haAddr:'',haRow:true};
+  quality:'full',fps:false,wpTopic:'waterfall',wpSub:'EarthPorn',wpEvery:'15',wpCredit:true,wpZoom:false,wpBlur:false,wpRes:'1440',wpLast:null,favorites:null,favSource:'',order:{},hidden:[],weather:true,wxPlace:'',wxUnits:'f',haAddr:'',haRow:true,homeOverride:true,bootStart:true};
 /* Settings are pages: the first screen lists them (with a short summary each), OK opens one, Back returns. */
 function valName(key){ var o=OPT_BY[key]; if(!o) return ''; var v=S[key], arr=o.values||o.swatch||[]; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) return arr[i][1]; return ''; }
 var OPTIONS=[
@@ -398,6 +398,9 @@ var OPTIONS=[
  {key:'haAddr',label:'Address',text:1,ph:'192.168.1.20:8123'},
  {key:'haRow',label:'Show the row',bool:1},
  {key:'_haReload',label:'Reload tiles',action:1},
+ {h:'Startup',sum:function(){ return (S.homeOverride?'Home button opens Lumen':'Home button opens the LG menu')+'  ·  '+(S.bootStart?'Opens on startup':'Does not open on startup'); }},
+ {key:'homeOverride',label:'Override Home button',bool:1},
+ {key:'bootStart',label:'Start on boot',bool:1},
  {h:'Advanced',sum:function(){ return ''; }},
  {key:'_debug',label:'Debug log',action:1},
  {key:'_reset',label:'Reset all settings',action:1}
@@ -1237,6 +1240,28 @@ function rootExec(cmd,cb){
   });
 }
 function shq(s){ return "'"+String(s).replace(/'/g,"'\\''")+"'"; }
+/* Home override and start-on-boot are files the boot scripts read. The toggles write those files. */
+function pushStartup(which, on){
+  if(!ON_TV){ toast(which==='home'?'Home button override applies on the TV':'Start on boot applies on the TV'); return; }
+  if(which==='home') toast(on?'Home will open Lumen. The picture blinks once.':'Home will open the LG menu. The picture blinks once.');
+  else toast(on?'Lumen will open when the TV turns on.':'Lumen will stay closed until you open it.');
+  rootExec('sh /media/developer/lumen-home/switches.sh '+which+' '+(on?'on':'off'), function(res, err){
+    var key=which==='home'?'homeOverride':'bootStart';
+    if(err){ S[key]=!on; saveS(); if(F.zone==='settings') refreshOpt(); toast('Couldn\u2019t change that'); dlog('startup: '+which+' failed ('+err+')'); return; }
+    dlog('startup: '+which+' '+(on?'on':'off'), (res&&(res.stdoutString||'')).replace(/\s+/g,' ').slice(0,160));
+  });
+}
+function syncStartup(){
+  if(!ON_TV) return;
+  rootExec('sh /media/developer/lumen-home/switches.sh status', function(res, err){
+    if(err||!res){ dlog('startup: status failed', err); return; }
+    var out=res.stdoutString||'';
+    var home=/home=1/.test(out), boot=/boot=1/.test(out);
+    if(S.homeOverride===home&&S.bootStart===boot) return;
+    S.homeOverride=home; S.bootStart=boot; saveS();
+    if(F.zone==='settings') renderSettings();
+  });
+}
 /* call a Luna method: directly first, then as root through the Homebrew Channel if webOS refuses */
 function lunaQuery(uri,params,ok,cb){
   var name=uri.split('/').pop();
@@ -1681,7 +1706,7 @@ function changeOpt(dir,isOk){
     if(o.key==='_hidden'){ if((S.hidden||[]).length){ S.hidden=[]; saveS(); render(); toast('All apps are visible again'); } }
     if(o.key==='_reset'){
       if(!resetArmed){ resetArmed=true; clearTimeout(resetT); resetT=setTimeout(function(){resetArmed=false; refreshOpt();},3500); }
-      else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); toast('Settings reset'); return; }
+      else { resetArmed=false; var keep={favorites:S.favorites,favSource:S.favSource,order:S.order,hidden:S.hidden}; S=Object.assign({},DEFAULTS,keep); saveS(); applySettings(); render(); renderSettings(); pushStartup('home', true); pushStartup('boot', true); toast('Settings reset'); return; }
     }
     refreshOpt(); return;
   }
@@ -1691,6 +1716,7 @@ function changeOpt(dir,isOk){
   else if(o.range){ var lo=o.range[0],hi=o.range[1],st=o.range[2]; var nv=v+dir*st; if(isOk&&nv>hi) nv=lo; S[o.key]=Math.max(lo,Math.min(hi,nv)); }
   else { var arr=o.swatch||o.values, idx=0; for(var i=0;i<arr.length;i++) if(arr[i][0]===v) idx=i; S[o.key]=arr[(idx+dir+arr.length)%arr.length][0]; }
   saveS(); applySettings();
+  if(o.key==='homeOverride'||o.key==='bootStart'){ refreshOpt(); pushStartup(o.key==='homeOverride'?'home':'boot', !!S[o.key]); return; }
   if(RERENDER[o.key]) render(); else applyFocus(true);
   if(o.key==='wallpaper'||o.key==='wpRes'||o.key==='wpBlur'){ if(o.key==='wallpaper') WP.on&&!isPhotoMode()&&wpOff(); bdKey=null; wpApply(true); }
   else if(o.key==='wpCredit'||o.key==='dim'||o.key==='wpZoom'){ wpApply(false); if(o.key==='wpZoom'){ var cur=$(WP.flip?'phA':'phB'); cur.classList.toggle('kb',!!S.wpZoom&&S.quality!=='lite'); } }
@@ -1935,6 +1961,7 @@ if(ON_DEVICE){
   if(cached&&cached.length){ appSig=JSON.stringify(cached); setApps(cached,'tv'); render(); resolveIcons(); dlog('showing '+cached.length+' saved apps while refreshing'); }   /* instant start from last known list */
   else render();                                                                             /* "Loading your apps" */
   loadTvApps(false);
+  syncStartup();
   setTimeout(function(){ if(SOURCE==='none'&&loading) banner('Still reading your app list…',0); },6000);
 } else {
   setApps(demoApps(),'demo'); render();

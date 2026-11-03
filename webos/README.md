@@ -2,6 +2,15 @@
 
 A Projectivy / Apple TV style launcher for rooted LG webOS TVs.
 
+## Startup
+
+Lumen settings → **Startup**:
+
+- **Override Home button** — the Home key opens Lumen. Off gives that key back to the LG menu. The picture blinks once, because the app manager reloads.
+- **Start on boot** — Lumen opens when the TV turns on. Off leaves it closed until you open it.
+
+On a rooted TV these write flag files through `/media/developer/lumen-home/switches.sh` (`scripts/switches.sh`). The boot hook skips the home stand-in when `DISABLE-HOME` is present, and skips launching Lumen when `DISABLE-BOOT` is present.
+
 ## New in 2.4: Home Assistant row
 
 A row of tiles under Inputs that run Home Assistant automations (lights, scenes, anything).
