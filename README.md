@@ -1,5 +1,10 @@
 # Lumen Launcher
 
+> [!IMPORTANT]
+> **Lumen has moved to Halcyon.** Lumen 2.4 is the last Lumen release and is no longer developed. Its successor is **[Halcyon](https://github.com/ipatek420/halcyon)**, a redesign built on everything Lumen learned on real hardware: a sky that follows the time of day, a greeting with the weather, one continuous shelf of apps, a dock for inputs and Home Assistant scenes, Restart TV, and opening when the TV turns on.
+>
+> Halcyon has its own app id, so it installs alongside Lumen, and it reads your Lumen Home Assistant setup (`www/lumen.json`) as it is. Please open new issues and pull requests on [Halcyon](https://github.com/ipatek420/halcyon).
+
 A home screen for rooted LG webOS TVs in the style of Apple TV and Projectivy Launcher: a big title for the focused app, a backdrop that takes its colour from that app or from a photo wallpaper, cards that lift as you move, and smooth scrolling.
 
 ![Lumen home screen](docs/screenshots/home.jpg)

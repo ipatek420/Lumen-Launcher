@@ -1,5 +1,7 @@
 # Lumen Launcher: notes for contributors (and coding agents)
 
+> **No longer developed.** Development continues in **Halcyon**, [github.com/ipatek420/halcyon](https://github.com/ipatek420/halcyon), whose own `CLAUDE.md` carries the webOS rules below. These notes stay as Lumen's record; make new changes in Halcyon.
+
 A Projectivy Launcher / Apple TV–style home screen for **rooted LG webOS TVs**. Built over many rounds of feedback on a real TV; these notes are the hand-off. Read them before changing anything.
 
 Current version: **2.4.0**.
